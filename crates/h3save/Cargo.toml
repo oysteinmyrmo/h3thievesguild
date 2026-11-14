@@ -1,0 +1,13 @@
+[package]
+name = "h3save"
+description = "Parser for Heroes of Might and Magic III: Horn of the Abyss save files."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+flate2 = "1"
+
+[lints]
+workspace = true
