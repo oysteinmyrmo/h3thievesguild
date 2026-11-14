@@ -51,12 +51,16 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.config.toolchain }}
+          targets: wasm32-unknown-unknown
       - name: Build
         shell: bash
         run: cargo build --release --all-targets
       - name: Test
         shell: bash
         run: cargo test --release
+      - name: Build WebAssembly
+        shell: bash
+        run: cargo build --release -p h3wasm --target wasm32-unknown-unknown
 
   lint:
     name: Lint
@@ -67,11 +71,48 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
+      - name: Clippy (WebAssembly)
+        run: cargo clippy -p h3wasm --target wasm32-unknown-unknown --all-targets -- -D warnings
       - name: Docs
         run: cargo doc --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
+
+  wasm:
+    name: WebAssembly tests
+    runs-on: ubuntu-26.04
+    env:
+      CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Find the wasm-bindgen version
+        id: wasm-bindgen
+        run: echo "version=$(cargo pkgid -p wasm-bindgen | sed 's/.*@//')" >> "$GITHUB_OUTPUT"
+      - name: Install wasm-bindgen
+        uses: taiki-e/install-action@v2
+        with:
+          # The command-line tool must match the library version in Cargo.lock.
+          tool: wasm-bindgen@${{ steps.wasm-bindgen.outputs.version }}
+          fallback: none
+      - name: Test in Node.js
+        run: cargo test -p h3wasm --target wasm32-unknown-unknown
+      - name: Generate the JavaScript bindings
+        run: |
+          cargo build --release -p h3wasm --target wasm32-unknown-unknown
+          wasm-bindgen --target web --out-dir pkg target/wasm32-unknown-unknown/release/h3wasm.wasm
+          grep -q "finish(): Dataset;" pkg/h3wasm.d.ts
+      - name: Check the size
+        run: |
+          size=$(gzip -9 -c pkg/h3wasm_bg.wasm | wc -c)
+          echo "h3wasm_bg.wasm is $size bytes gzipped"
+          # About 100 kB today. Fail if it grows past 500 kB, which would slow page loads.
+          test "$size" -le 500000

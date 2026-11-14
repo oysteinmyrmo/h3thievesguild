@@ -30,6 +30,7 @@ that turns a game's saves into series for plotting.
 | `crates/h3save` | The save parser library. |
 | `crates/h3save/tests` | Integration tests: one file per homm3tools C++ test file, plus tests added since. |
 | `crates/h3dataset` | Builds the per-day data set for plotting from a game's saves. |
+| `crates/h3wasm` | WebAssembly bindings for the browser, with TypeScript types for the data set. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools. Each folder's `info.txt` describes what was done in game. |
 
 ## Tests
@@ -44,6 +45,38 @@ the save's date. To see the count per test:
 
 ```sh
 cargo test -- --nocapture --test-threads=1
+```
+
+### WebAssembly
+
+The `h3wasm` tests run in WebAssembly under Node.js. They need the `wasm-bindgen` command-line
+tool at the same version as the `wasm-bindgen` crate in `Cargo.lock`:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version <version from Cargo.lock>
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
+    cargo test -p h3wasm --target wasm32-unknown-unknown
+```
+
+To build the module and its JavaScript bindings for a web page:
+
+```sh
+cargo build --release -p h3wasm --target wasm32-unknown-unknown
+wasm-bindgen --target web --out-dir pkg target/wasm32-unknown-unknown/release/h3wasm.wasm
+```
+
+In the page:
+
+```js
+import init, { DatasetBuilder } from "./pkg/h3wasm.js";
+
+await init();
+const builder = new DatasetBuilder();
+for (const file of input.files) {
+    builder.add(file.name, new Uint8Array(await file.arrayBuffer()));
+}
+const dataset = builder.finish(); // Throws a DatasetError naming the files at fault.
 ```
 
 ### Robustness

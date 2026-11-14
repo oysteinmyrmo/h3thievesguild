@@ -1,2 +1,2 @@
-# "HotA" (Horn of the Abyss) is a product name, not code.
-doc-valid-idents = ["HotA", ".."]
+# Product and library names, not code: "HotA" is Horn of the Abyss.
+doc-valid-idents = ["HotA", "ECharts", "WebAssembly", "TypeScript", "JavaScript", ".."]
