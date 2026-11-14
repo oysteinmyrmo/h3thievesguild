@@ -1,0 +1,77 @@
+name: build-and-test
+on: [push]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - {
+          name: "Windows x64 (MSVC)",
+          os: windows-latest,
+          toolchain: "stable-x86_64-pc-windows-msvc"
+        }
+        - {
+          name: "Windows x64 (GNU)",
+          os: windows-latest,
+          toolchain: "stable-x86_64-pc-windows-gnu"
+        }
+        - {
+          name: "Windows arm64 (MSVC)",
+          os: windows-11-arm,
+          toolchain: "stable"
+        }
+        - {
+          name: "MacOS arm64",
+          os: macos-latest,
+          toolchain: "stable"
+        }
+        - {
+          name: "MacOS x64",
+          os: macos-15-intel,
+          toolchain: "stable"
+        }
+        - {
+          name: "Linux x64",
+          os: ubuntu-latest,
+          toolchain: "stable"
+        }
+        - {
+          name: "Linux arm64",
+          os: ubuntu-24.04-arm,
+          toolchain: "stable"
+        }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.config.toolchain }}
+      - name: Build
+        shell: bash
+        run: cargo build --release --all-targets
+      - name: Test
+        shell: bash
+        run: cargo test --release
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Docs
+        run: cargo doc --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
