@@ -3,7 +3,8 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use h3dataset::{Builder, Dataset, DatasetError, DayFiles, GameFiles, PlayerSeries, build};
+use h3dataset::{Builder, Dataset, DatasetError, DayFiles, DayRange, GameFiles, MAX_DAYS, PlayerSeries, build};
+use h3save::Date;
 use serde_json::{Value, json};
 
 fn test_data(folder: &str) -> PathBuf {
@@ -44,7 +45,27 @@ fn some(values: &[u32]) -> Vec<Option<f64>> {
 /// Checks that hold for every data set.
 fn check_shape(dataset: &Dataset) {
     let days = dataset.days.len();
-    assert!(dataset.days.windows(2).all(|w| w[0].day < w[1].day), "days in order");
+    // Every day from the first save to the last, both of which have a save.
+    assert!(
+        dataset.days.windows(2).all(|w| w[0].day + 1 == w[1].day),
+        "consecutive days"
+    );
+    assert!(dataset.days.first().unwrap().file.is_some() && dataset.days.last().unwrap().file.is_some());
+    let has_save: Vec<bool> = dataset.days.iter().map(|d| d.file.is_some()).collect();
+    // The missing days are exactly the days without a file, as runs.
+    let listed: Vec<u32> = dataset.missing_days.iter().flat_map(|r| r.first..=r.last).collect();
+    let without_file: Vec<u32> = dataset
+        .days
+        .iter()
+        .filter(|d| d.file.is_none())
+        .map(|d| d.day)
+        .collect();
+    assert_eq!(listed, without_file);
+    assert!(
+        dataset.missing_days.windows(2).all(|w| w[0].last + 1 < w[1].first),
+        "separate runs"
+    );
+    assert_eq!(dataset.missing_days_warning.is_some(), !dataset.missing_days.is_empty());
     for day in &dataset.days {
         assert_eq!(day.label, format!("{}-{}-{}", day.month, day.week, day.day_of_week));
         let from_parts = (u32::from(day.month) - 1) * 28 + (u32::from(day.week) - 1) * 7 + u32::from(day.day_of_week);
@@ -66,20 +87,22 @@ fn check_shape(dataset: &Dataset) {
             player_stats
         );
         assert!(p.values.values().all(|row| row.len() == days));
-        // In the game on the same days for every statistic, and on at least one day.
+        // In the game on the same days for every statistic, and on at least one day. Days without
+        // a save have no values.
         let alive: Vec<bool> = p.values["gold"].iter().map(Option::is_some).collect();
+        assert!(alive.iter().zip(&has_save).all(|(&a, &s)| s || !a));
         assert!(alive.contains(&true));
         assert!(
             p.values
                 .values()
                 .all(|row| row.iter().map(Option::is_some).eq(alive.iter().copied()))
         );
-        // Eliminated on the first day out of the game after being in it.
+        // Eliminated on the first day with a save where the player is out of the game, after
+        // being in it.
         let first_in = alive.iter().position(|&a| a).unwrap();
-        let first_out = alive[first_in..]
-            .iter()
-            .position(|&a| !a)
-            .map(|i| dataset.days[first_in + i].day);
+        let first_out = (first_in..days)
+            .find(|&i| has_save[i] && !alive[i])
+            .map(|i| dataset.days[i].day);
         assert_eq!(p.eliminated_day, first_out);
         assert!(p.color.len() == 7 && p.color.starts_with('#'));
     }
@@ -106,17 +129,17 @@ fn resources_of_every_player_by_day() {
     )
     .unwrap();
     check_shape(&dataset);
-    let days: Vec<(u32, &str, &str)> = dataset
+    let days: Vec<(u32, &str, Option<&str>)> = dataset
         .days
         .iter()
-        .map(|d| (d.day, d.label.as_str(), d.file.as_str()))
+        .map(|d| (d.day, d.label.as_str(), d.file.as_deref()))
         .collect();
     assert_eq!(
         days,
         [
-            (1, "1-1-1", "[hotseat] 111.GM8"),
-            (2, "1-1-2", "[hotseat] 112.GM8"),
-            (3, "1-1-3", "[hotseat] 113.GM5")
+            (1, "1-1-1", Some("[hotseat] 111.GM8")),
+            (2, "1-1-2", Some("[hotseat] 112.GM8")),
+            (3, "1-1-3", Some("[hotseat] 113.GM5"))
         ]
     );
     // Wood, mercury, ore, sulfur, crystal, gems and gold from info.txt, with the correction the
@@ -459,11 +482,22 @@ fn error_messages_name_the_files() {
 fn json_has_the_shape_the_frontend_expects() {
     let dataset = dataset_from("resources", &["[hotseat] 112.GM8", "[hotseat] 113.GM5"]).unwrap();
     let json = serde_json::to_value(&dataset).unwrap();
+    assert_eq!(json["missingDays"], json!([]));
+    assert_eq!(json["missingDaysWarning"], Value::Null);
     let keys = |v: &Value| v.as_object().unwrap().keys().cloned().collect::<BTreeSet<_>>();
     let set = |names: &[&str]| names.iter().map(|s| (*s).to_string()).collect::<BTreeSet<_>>();
     assert_eq!(
         keys(&json),
-        set(&["map", "days", "playerStats", "heroStats", "players", "heroes"])
+        set(&[
+            "map",
+            "days",
+            "missingDays",
+            "missingDaysWarning",
+            "playerStats",
+            "heroStats",
+            "players",
+            "heroes"
+        ])
     );
     assert_eq!(
         keys(&json["map"]),
@@ -526,5 +560,223 @@ fn errors_serialize_with_a_kind_and_details() {
     assert_eq!(
         serde_json::to_value(&mixed).unwrap(),
         json!({"kind": "mixedGames", "details": [{"mapName": "A", "mapSize": "S", "underground": false, "files": []}]})
+    );
+}
+
+fn experience_files(days: &[&str]) -> Vec<String> {
+    days.iter().map(|d| format!("[hotseat] {d}.GM2")).collect()
+}
+
+#[test]
+fn missing_days_are_on_the_x_axis_with_no_values() {
+    // Days 2, 5 and 6 have no save.
+    let files = experience_files(&["111", "113", "114", "117", "121"]);
+    let names: Vec<&str> = files.iter().map(String::as_str).collect();
+    let dataset = dataset_from("experience", &names).unwrap();
+    check_shape(&dataset);
+    let days: Vec<(u32, Option<&str>)> = dataset.days.iter().map(|d| (d.day, d.file.as_deref())).collect();
+    assert_eq!(
+        days,
+        [
+            (1, Some("[hotseat] 111.GM2")),
+            (2, None),
+            (3, Some("[hotseat] 113.GM2")),
+            (4, Some("[hotseat] 114.GM2")),
+            (5, None),
+            (6, None),
+            (7, Some("[hotseat] 117.GM2")),
+            (8, Some("[hotseat] 121.GM2")),
+        ]
+    );
+    let labels: Vec<&str> = dataset.days.iter().map(|d| d.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        ["1-1-1", "1-1-2", "1-1-3", "1-1-4", "1-1-5", "1-1-6", "1-1-7", "1-2-1"]
+    );
+    // Values from info.txt on the days with a save, nothing on the others.
+    let giselle = dataset.heroes.iter().find(|h| h.name == "Giselle").unwrap();
+    let level = |v: [Option<u32>; 8]| v.map(|x| x.map(f64::from)).to_vec();
+    assert_eq!(
+        giselle.values["level"],
+        level([Some(2), None, Some(9), Some(10), None, None, Some(16), Some(18)])
+    );
+    let purple = Some("purple".to_string());
+    assert_eq!(
+        giselle.owner,
+        [
+            purple.clone(),
+            None,
+            purple.clone(),
+            purple.clone(),
+            None,
+            None,
+            purple.clone(),
+            purple
+        ]
+    );
+    assert_eq!(
+        values(&dataset, "teal", "totalExperience"),
+        level([
+            Some(1800),
+            None,
+            Some(61_800),
+            Some(91_800),
+            None,
+            None,
+            Some(112_800),
+            Some(120_720)
+        ])
+    );
+    // A gap is not an elimination.
+    assert!(dataset.players.iter().all(|p| p.eliminated_day.is_none()));
+}
+
+#[test]
+fn missing_days_are_listed_as_runs_with_a_warning() {
+    let files = experience_files(&["111", "113", "114", "117", "121"]);
+    let names: Vec<&str> = files.iter().map(String::as_str).collect();
+    let dataset = dataset_from("experience", &names).unwrap();
+    assert_eq!(
+        dataset.missing_days,
+        [
+            DayRange {
+                first: 2,
+                last: 2,
+                label: "Month 1, Week 1, Day 2".into()
+            },
+            DayRange {
+                first: 5,
+                last: 6,
+                label: "Month 1, Week 1, Day 5 to Month 1, Week 1, Day 6".into()
+            },
+        ]
+    );
+    assert_eq!(
+        dataset.missing_days_warning.as_deref(),
+        Some(
+            "There are no saves for 3 days between the first and the last save:\n\
+             - Month 1, Week 1, Day 2\n\
+             - Month 1, Week 1, Day 5 to Month 1, Week 1, Day 6\n\
+             These days are left empty in the charts. Continue?"
+        )
+    );
+    // One missing day, across the end of a week.
+    let files = experience_files(&["116", "121"]);
+    let names: Vec<&str> = files.iter().map(String::as_str).collect();
+    let dataset = dataset_from("experience", &names).unwrap();
+    check_shape(&dataset);
+    assert_eq!(
+        dataset.missing_days,
+        [DayRange {
+            first: 7,
+            last: 7,
+            label: "Month 1, Week 1, Day 7".into()
+        }]
+    );
+    assert!(
+        dataset
+            .missing_days_warning
+            .unwrap()
+            .starts_with("There are no saves for 1 day between")
+    );
+}
+
+#[test]
+fn consecutive_saves_have_no_missing_days() {
+    // Day 7 to day 8 crosses into week 2 without a gap.
+    let files = experience_files(&["116", "117", "121"]);
+    let names: Vec<&str> = files.iter().map(String::as_str).collect();
+    let dataset = dataset_from("experience", &names).unwrap();
+    assert_eq!(dataset.missing_days, []);
+    assert_eq!(dataset.missing_days_warning, None);
+    assert_eq!(dataset.days.len(), 3);
+}
+
+#[test]
+fn elimination_is_the_first_saved_day_out_of_the_game() {
+    // Day 2 is missing; blue, tan and orange are out of the game on day 3.
+    let dataset = dataset_from("resources", &["[hotseat] 111.GM8", "[hotseat] 113.GM5"]).unwrap();
+    check_shape(&dataset);
+    for id in ["blue", "tan", "orange"] {
+        assert_eq!(player(&dataset, id).eliminated_day, Some(3), "{id}");
+    }
+    assert_eq!(values(&dataset, "blue", "gold"), [Some(3400.0), None, None]);
+    assert_eq!(values(&dataset, "red", "gold"), [Some(2500.0), None, Some(10_700.0)]);
+}
+
+/// A parsed save with its date changed, for spans the test saves do not have.
+fn save_on(date: Date) -> h3save::SaveFile {
+    let mut save = h3save::SaveFile::read(test_data("experience").join("[hotseat] 111.GM2")).unwrap();
+    save.date = date;
+    save
+}
+
+#[test]
+fn a_span_of_at_most_max_days_is_allowed() {
+    let mut builder = Builder::new();
+    builder.add_save("first", &save_on(Date::FIRST));
+    builder.add_save("last", &save_on(Date::from_days_elapsed(MAX_DAYS - 1).unwrap()));
+    let dataset = builder.finish().unwrap();
+    assert_eq!(dataset.days.len(), usize::try_from(MAX_DAYS).unwrap());
+    assert_eq!(
+        dataset.missing_days,
+        [DayRange {
+            first: 2,
+            last: MAX_DAYS - 1,
+            label: "Month 1, Week 1, Day 2 to Month 120, Week 4, Day 6".into()
+        }]
+    );
+    check_shape(&dataset);
+}
+
+#[test]
+fn a_longer_span_is_an_error_naming_the_first_and_last_save() {
+    let mut builder = Builder::new();
+    builder.add_save("last", &save_on(Date::from_days_elapsed(MAX_DAYS).unwrap()));
+    builder.add_save("first", &save_on(Date::FIRST));
+    let error = builder.finish().unwrap_err();
+    assert_eq!(
+        error,
+        DatasetError::TooManyDays {
+            days: MAX_DAYS + 1,
+            first: DayFiles {
+                date: "Month 1, Week 1, Day 1".into(),
+                files: vec!["first".into()]
+            },
+            last: DayFiles {
+                date: "Month 121, Week 1, Day 1".into(),
+                files: vec!["last".into()]
+            },
+        }
+    );
+    let message = error.to_string();
+    assert!(
+        message.contains("first") && message.contains("last") && message.contains("3361 days"),
+        "{message}"
+    );
+    assert_eq!(
+        serde_json::to_value(&error).unwrap(),
+        json!({"kind": "tooManyDays", "details": {
+            "days": 3361,
+            "first": {"date": "Month 1, Week 1, Day 1", "files": ["first"]},
+            "last": {"date": "Month 121, Week 1, Day 1", "files": ["last"]},
+        }})
+    );
+}
+
+#[test]
+fn missing_days_serialize_with_null_files() {
+    let dataset = dataset_from("resources", &["[hotseat] 111.GM8", "[hotseat] 113.GM5"]).unwrap();
+    let json = serde_json::to_value(&dataset).unwrap();
+    assert_eq!(json["days"][1]["file"], Value::Null);
+    assert_eq!(
+        json["missingDays"],
+        json!([{"first": 2, "last": 2, "label": "Month 1, Week 1, Day 2"}])
+    );
+    assert!(
+        json["missingDaysWarning"]
+            .as_str()
+            .unwrap()
+            .contains("Month 1, Week 1, Day 2")
     );
 }

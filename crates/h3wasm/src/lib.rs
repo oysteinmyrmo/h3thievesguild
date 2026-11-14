@@ -10,6 +10,9 @@
 //! }
 //! try {
 //!     const dataset = builder.finish(); // A `Dataset`; see the TypeScript types.
+//!     if (dataset.missingDaysWarning && !confirm(dataset.missingDaysWarning)) {
+//!         // Days are missing and the user chose not to go on.
+//!     }
 //! } catch (e) {
 //!     // A `DatasetError`: e.message for the user, e.kind and e.details for the code.
 //! }
@@ -137,7 +140,7 @@ mod tests {
     #[test]
     fn the_typescript_types_name_every_field_of_the_dataset_and_errors() {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/resources");
-        let files: Vec<(String, Vec<u8>)> = ["[hotseat] 112.GM8", "[hotseat] 113.GM5"]
+        let files: Vec<(String, Vec<u8>)> = ["[hotseat] 111.GM8", "[hotseat] 113.GM5"]
             .iter()
             .map(|n| ((*n).to_string(), std::fs::read(dir.join(n)).unwrap()))
             .collect();
@@ -159,6 +162,17 @@ mod tests {
                 date: "d".into(),
                 files: vec![],
             }]),
+            h3dataset::DatasetError::TooManyDays {
+                days: 1,
+                first: h3dataset::DayFiles {
+                    date: "d".into(),
+                    files: vec![],
+                },
+                last: h3dataset::DayFiles {
+                    date: "d".into(),
+                    files: vec![],
+                },
+            },
         ];
         for error in &errors {
             keys(&serde_json::to_value(error).unwrap(), &mut fields);
@@ -167,7 +181,7 @@ mod tests {
             let named = TYPESCRIPT.contains(&format!("{field}:")) || TYPESCRIPT.contains(&format!("{field}?:"));
             assert!(named, "TypeScript types lack `{field}`");
         }
-        for kind in ["noSaves", "unreadable", "mixedGames", "duplicateDays"] {
+        for kind in ["noSaves", "unreadable", "mixedGames", "duplicateDays", "tooManyDays"] {
             assert!(
                 TYPESCRIPT.contains(&format!("\"{kind}\"")),
                 "TypeScript types lack kind {kind}"

@@ -140,3 +140,29 @@ fn no_files_throw_an_error_without_details() {
     assert!(get(&error, "details").is_undefined());
     assert_eq!(String::from(error.message()), "no save files were given");
 }
+
+#[wasm_bindgen_test]
+fn missing_days_are_null_with_a_warning_to_show() {
+    let js = builder(&[("d1", DAY_1), ("d3", DAY_3)]).finish().unwrap();
+    let days: Array = get(&js, "days").dyn_into().unwrap();
+    assert_eq!(days.length(), 3);
+    assert_eq!(get(&days.get(1), "label"), "1-1-2");
+    assert!(get(&days.get(1), "file").is_null());
+    let warning = get(&js, "missingDaysWarning").as_string().unwrap();
+    assert!(
+        warning.contains("Month 1, Week 1, Day 2") && warning.ends_with("Continue?"),
+        "{warning}"
+    );
+    let missing: Value = serde_wasm_bindgen::from_value(get(&js, "missingDays")).unwrap();
+    assert_eq!(
+        missing,
+        serde_json::json!([{"first": 2, "last": 2, "label": "Month 1, Week 1, Day 2"}])
+    );
+    let players: Array = get(&js, "players").dyn_into().unwrap();
+    let red = players.iter().find(|p| get(p, "id") == "red").unwrap();
+    let gold: Array = get(&get(&red, "values"), "gold").dyn_into().unwrap();
+    assert!(gold.get(1).is_null());
+    // A complete series has no warning.
+    let js = builder(&[("d1", DAY_1), ("d2", DAY_2)]).finish().unwrap();
+    assert!(get(&js, "missingDaysWarning").is_null());
+}

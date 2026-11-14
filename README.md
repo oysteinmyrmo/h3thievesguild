@@ -19,6 +19,8 @@ that turns a game's saves into series for plotting.
 - Builds a data set from the saves of one game: per-day series of each player's resources, army
   strength, heroes and towns, and each hero's level, experience and primary skills. Saves from
   different games, or two saves from the same day, are reported as errors naming the files.
+  Days without a save stay on the x-axis with empty values, and come with a warning to show
+  the user before going on.
 - Creature, artifact and town name tables do not yet include the Factory and Bulwark additions.
   Unknown IDs are kept as raw values (for example `Creature(190)`); unknown creatures count as 0
   towards army strength.
@@ -77,6 +79,9 @@ for (const file of input.files) {
     builder.add(file.name, new Uint8Array(await file.arrayBuffer()));
 }
 const dataset = builder.finish(); // Throws a DatasetError naming the files at fault.
+if (dataset.missingDaysWarning && !confirm(dataset.missingDaysWarning)) {
+    // The user chose not to go on with days missing.
+}
 ```
 
 ### Robustness

@@ -42,6 +42,9 @@ pub enum DatasetError {
     MixedGames(Vec<GameFiles>),
     /// More than one save for the same day.
     DuplicateDays(Vec<DayFiles>),
+    /// The saves span more days than a data set can hold; a date is likely damaged.
+    #[serde(rename_all = "camelCase")]
+    TooManyDays { days: u32, first: DayFiles, last: DayFiles },
 }
 
 fn list(files: &[String]) -> String {
@@ -72,6 +75,14 @@ impl fmt::Display for DatasetError {
                 }
                 Ok(())
             }
+            DatasetError::TooManyDays { days, first, last } => write!(
+                f,
+                "the saves span {days} days, more than a data set can hold; check the dates of the first save, {} ({}), and the last, {} ({})",
+                list(&first.files),
+                first.date,
+                list(&last.files),
+                last.date
+            ),
             DatasetError::DuplicateDays(days) => {
                 write!(f, "more than one save for the same day; keep one save per day:")?;
                 for day in days {

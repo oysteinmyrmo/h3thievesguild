@@ -7,6 +7,10 @@ use h3save::{Color, Date, SaveFile};
 use serde::Serialize;
 
 use crate::error::{DatasetError, DayFiles, GameFiles, UnreadableFile};
+
+/// Most days a data set covers, from the first save to the last: ten years of game time. A
+/// longer series means a damaged date, and would take a lot of memory to chart.
+pub const MAX_DAYS: u32 = 10 * 12 * 28;
 use crate::stats::{HERO_STATS, PLAYER_STATS, StatInfo};
 
 /// One game's statistics over time, ready for plotting.
@@ -17,8 +21,15 @@ use crate::stats::{HERO_STATS, PLAYER_STATS, StatInfo};
 #[serde(rename_all = "camelCase")]
 pub struct Dataset {
     pub map: MapInfo,
-    /// The days with a save, in order. This is the x-axis.
+    /// Every day from the first save to the last, in order: the x-axis. Days without a save
+    /// are included, with no file and `null` values, so the charts show the gap.
     pub days: Vec<Day>,
+    /// Runs of days without a save between the first and the last save. Empty for a
+    /// complete series.
+    pub missing_days: Vec<DayRange>,
+    /// A message for the user when days are missing, asking whether to go on. `None` for a
+    /// complete series.
+    pub missing_days_warning: Option<String>,
     /// The player statistics, in the order to list them.
     pub player_stats: Vec<StatInfo>,
     /// The hero statistics, in the order to list them.
@@ -46,8 +57,7 @@ pub struct MapInfo {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Day {
-    /// Day number in the game, counting from 1. Use it for a value x-axis, where days without
-    /// a save leave a gap.
+    /// Day number in the game, counting from 1.
     pub day: u32,
     pub month: u16,
     pub week: u16,
@@ -55,8 +65,21 @@ pub struct Day {
     pub day_of_week: u16,
     /// Short label for an axis, such as "1-2-3" for month 1, week 2, day 3.
     pub label: String,
-    /// The save file this day comes from.
-    pub file: String,
+    /// The save file this day comes from, or `None` if there is no save for the day.
+    pub file: Option<String>,
+}
+
+/// A run of consecutive days, such as days without a save.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayRange {
+    /// First day number of the run.
+    pub first: u32,
+    /// Last day number of the run, the same as `first` for a single day.
+    pub last: u32,
+    /// The run as text, such as "Month 1, Week 1, Day 2" or
+    /// "Month 1, Week 1, Day 4 to Month 1, Week 2, Day 1".
+    pub label: String,
 }
 
 /// A player's statistics over the game.
@@ -202,7 +225,11 @@ impl Builder {
     /// Checked in this order, each listing every file involved:
     /// [`DatasetError::NoSaves`] if nothing was added, [`DatasetError::Unreadable`] if any
     /// file is not a readable save, [`DatasetError::MixedGames`] if the saves are from more than
-    /// one map, and [`DatasetError::DuplicateDays`] if two saves are from the same day.
+    /// one map, [`DatasetError::DuplicateDays`] if two saves are from the same day, and
+    /// [`DatasetError::TooManyDays`] if the saves span more than [`MAX_DAYS`] days.
+    ///
+    /// Days without a save are not an error: they are in [`Dataset::missing_days`], and the
+    /// frontend should ask the user whether to go on.
     pub fn finish(self) -> Result<Dataset, DatasetError> {
         let Builder {
             mut saves,
@@ -218,6 +245,7 @@ impl Builder {
         check_one_game(&saves)?;
         check_one_save_per_day(&saves)?;
         saves.sort_by_key(|s| s.date);
+        check_span(&saves)?;
         Ok(assemble(&saves))
     }
 }
@@ -281,32 +309,142 @@ fn check_one_save_per_day(saves: &[Summary]) -> Result<(), DatasetError> {
     }
 }
 
+/// Saves sorted by date must not span more than [`MAX_DAYS`].
+fn check_span(saves: &[Summary]) -> Result<(), DatasetError> {
+    let (Some(first), Some(last)) = (saves.first(), saves.last()) else {
+        return Ok(());
+    };
+    let days = day_number(last.date)
+        .saturating_sub(day_number(first.date))
+        .saturating_add(1);
+    if days <= MAX_DAYS {
+        return Ok(());
+    }
+    Err(DatasetError::TooManyDays {
+        days,
+        first: DayFiles {
+            date: first.date.to_string(),
+            files: vec![first.file.clone()],
+        },
+        last: DayFiles {
+            date: last.date.to_string(),
+            files: vec![last.file.clone()],
+        },
+    })
+}
+
 fn day_number(date: Date) -> u32 {
     date.days_elapsed().saturating_add(1)
 }
 
+/// The date of a day number, which counts from 1.
+fn date_of(day: u32) -> Option<Date> {
+    Date::from_days_elapsed(day.checked_sub(1)?)
+}
+
+/// For each day from the first save to the last, the index of its save, if any.
+fn slots(saves: &[Summary]) -> Vec<Option<usize>> {
+    let (Some(first), Some(last)) = (saves.first(), saves.last()) else {
+        return Vec::new();
+    };
+    let (first, last) = (day_number(first.date), day_number(last.date));
+    let mut slots = Vec::new();
+    let mut next = saves.iter().map(|s| day_number(s.date)).enumerate().peekable();
+    for day in first..=last {
+        slots.push(next.next_if(|&(_, d)| d == day).map(|(i, _)| i));
+    }
+    slots
+}
+
+/// Spread values given per save over every day, with `None` for days without a save.
+fn spread<T: Clone>(per_save: &[Option<T>], slots: &[Option<usize>]) -> Vec<Option<T>> {
+    slots
+        .iter()
+        .map(|slot| slot.and_then(|i| per_save.get(i).cloned().flatten()))
+        .collect()
+}
+
+fn day_label(date: Date) -> String {
+    format!("{}-{}-{}", date.month(), date.week(), date.day())
+}
+
+/// The runs of days without a save.
+fn missing_days(days: &[Day]) -> Vec<DayRange> {
+    let mut runs: Vec<(u32, u32)> = Vec::new();
+    for day in days.iter().filter(|d| d.file.is_none()).map(|d| d.day) {
+        match runs.last_mut() {
+            Some((_, last)) if last.checked_add(1) == Some(day) => *last = day,
+            _ => runs.push((day, day)),
+        }
+    }
+    let text = |day: u32| date_of(day).map_or_else(|| format!("day {day}"), |d| d.to_string());
+    runs.into_iter()
+        .map(|(first, last)| DayRange {
+            first,
+            last,
+            label: if first == last {
+                text(first)
+            } else {
+                format!("{} to {}", text(first), text(last))
+            },
+        })
+        .collect()
+}
+
+fn missing_days_warning(missing: &[DayRange]) -> Option<String> {
+    if missing.is_empty() {
+        return None;
+    }
+    let count: u32 = missing
+        .iter()
+        .map(|r| r.last.saturating_sub(r.first).saturating_add(1))
+        .sum();
+    let days = if count == 1 { "1 day" } else { "" };
+    let days = if days.is_empty() {
+        format!("{count} days")
+    } else {
+        days.to_string()
+    };
+    let mut message = format!("There are no saves for {days} between the first and the last save:");
+    for run in missing {
+        message.push_str("\n- ");
+        message.push_str(&run.label);
+    }
+    message.push_str("\nThese days are left empty in the charts. Continue?");
+    Some(message)
+}
+
 /// Build from saves of one game, one per day, sorted by date.
 fn assemble(saves: &[Summary]) -> Dataset {
-    let days: Vec<Day> = saves
-        .iter()
-        .map(|s| Day {
-            day: day_number(s.date),
-            month: s.date.month(),
-            week: s.date.week(),
-            day_of_week: s.date.day(),
-            label: format!("{}-{}-{}", s.date.month(), s.date.week(), s.date.day()),
-            file: s.file.clone(),
+    let slots = slots(saves);
+    let first_day = saves.first().map_or(1, |s| day_number(s.date));
+    let days: Vec<Day> = (first_day..)
+        .zip(&slots)
+        .filter_map(|(day, slot)| {
+            let date = date_of(day)?;
+            Some(Day {
+                day,
+                month: date.month(),
+                week: date.week(),
+                day_of_week: date.day(),
+                label: day_label(date),
+                file: slot.and_then(|i| saves.get(i)).map(|s| s.file.clone()),
+            })
         })
         .collect();
+    let missing_days = missing_days(&days);
+    let missing_days_warning = missing_days_warning(&missing_days);
     let players = Color::ALL
         .into_iter()
-        .filter_map(|color| player_series(saves, color))
+        .filter_map(|color| player_series(saves, &slots, color))
         .collect();
-    let heroes = hero_series(saves);
+    let heroes = hero_series(saves, &slots);
     let map = saves.first().map(|s| s.map.clone()).unwrap_or_default();
     Dataset {
         map,
         days,
+        missing_days,
+        missing_days_warning,
         player_stats: PLAYER_STATS.iter().map(|s| s.info).collect(),
         hero_stats: HERO_STATS.iter().map(|s| s.info).collect(),
         players,
@@ -319,11 +457,12 @@ fn color_id(color: Color) -> String {
 }
 
 /// The series of one player, or `None` if the player is never in the game.
-fn player_series(saves: &[Summary], color: Color) -> Option<PlayerSeries> {
+fn player_series(saves: &[Summary], slots: &[Option<usize>], color: Color) -> Option<PlayerSeries> {
     let rows: Vec<Option<&Vec<f64>>> = saves
         .iter()
         .map(|s| s.players.get(color.index()).and_then(Option::as_ref))
         .collect();
+    // Elimination is judged on the days with a save: a missing day says nothing.
     let first_alive = rows.iter().position(Option::is_some)?;
     let eliminated_day = rows
         .iter()
@@ -335,11 +474,11 @@ fn player_series(saves: &[Summary], color: Color) -> Option<PlayerSeries> {
         .iter()
         .enumerate()
         .map(|(i, stat)| {
-            let row = rows
+            let per_save: Vec<Option<f64>> = rows
                 .iter()
                 .map(|r| r.and_then(|values| values.get(i).copied()))
                 .collect();
-            (stat.info.id.to_string(), row)
+            (stat.info.id.to_string(), spread(&per_save, slots))
         })
         .collect();
     let rgb = color.rgb();
@@ -352,7 +491,7 @@ fn player_series(saves: &[Summary], color: Color) -> Option<PlayerSeries> {
     })
 }
 
-fn hero_series(saves: &[Summary]) -> Vec<HeroSeries> {
+fn hero_series(saves: &[Summary], slots: &[Option<usize>]) -> Vec<HeroSeries> {
     let ids: BTreeSet<u32> = saves.iter().flat_map(|s| s.heroes.iter().map(|h| h.id)).collect();
     ids.into_iter()
         .map(|id| {
@@ -365,13 +504,15 @@ fn hero_series(saves: &[Summary]) -> Vec<HeroSeries> {
                 .map(|h| h.name.clone())
                 .next()
                 .unwrap_or_default();
-            let owner = rows.iter().map(|r| r.map(|h| color_id(h.owner))).collect();
+            let per_save: Vec<Option<String>> = rows.iter().map(|r| r.map(|h| color_id(h.owner))).collect();
+            let owner = spread(&per_save, slots);
             let values = HERO_STATS
                 .iter()
                 .enumerate()
                 .map(|(i, stat)| {
-                    let row = rows.iter().map(|r| r.and_then(|h| h.values.get(i).copied())).collect();
-                    (stat.info.id.to_string(), row)
+                    let per_save: Vec<Option<f64>> =
+                        rows.iter().map(|r| r.and_then(|h| h.values.get(i).copied())).collect();
+                    (stat.info.id.to_string(), spread(&per_save, slots))
                 })
                 .collect();
             HeroSeries {

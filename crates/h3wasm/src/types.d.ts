@@ -1,8 +1,15 @@
 /** One game's statistics over time. Every `values` row has one entry per day in `days`. */
 export interface Dataset {
     map: MapInfo;
-    /** The days with a save, in order: the x-axis. */
+    /**
+     * Every day from the first save to the last, in order: the x-axis. Days without a save
+     * have `file: null` and `null` values, so the charts show the gap.
+     */
     days: Day[];
+    /** Runs of days without a save. Empty for a complete series. */
+    missingDays: DayRange[];
+    /** Ask the user whether to go on when set: days are missing. `null` for a complete series. */
+    missingDaysWarning: string | null;
     playerStats: StatInfo[];
     heroStats: StatInfo[];
     /** Players in the game on at least one day, in colour order. */
@@ -22,7 +29,7 @@ export interface MapInfo {
 }
 
 export interface Day {
-    /** Day number in the game, from 1. Days without a save are missing. */
+    /** Day number in the game, from 1. */
     day: number;
     month: number;
     week: number;
@@ -30,8 +37,18 @@ export interface Day {
     dayOfWeek: number;
     /** Such as "1-2-3" for month 1, week 2, day 3. */
     label: string;
-    /** The save file this day comes from. */
-    file: string;
+    /** The save file this day comes from, or `null` if there is no save for the day. */
+    file: string | null;
+}
+
+/** A run of consecutive days. */
+export interface DayRange {
+    /** First day number. */
+    first: number;
+    /** Last day number, the same as `first` for a single day. */
+    last: number;
+    /** Such as "Month 1, Week 1, Day 4 to Month 1, Week 2, Day 1". */
+    label: string;
 }
 
 export interface StatInfo {
@@ -68,9 +85,10 @@ export interface HeroSeries {
 /** Thrown by `DatasetBuilder.finish`. `message` lists every file involved. */
 export interface DatasetError extends Error {
     name: "DatasetError";
-    kind: "noSaves" | "unreadable" | "mixedGames" | "duplicateDays";
+    kind: "noSaves" | "unreadable" | "mixedGames" | "duplicateDays" | "tooManyDays";
     details?:
         | { file: string; reason: string }[]
         | { mapName: string; mapSize: string; underground: boolean; files: string[] }[]
-        | { date: string; files: string[] }[];
+        | { date: string; files: string[] }[]
+        | { days: number; first: { date: string; files: string[] }; last: { date: string; files: string[] } };
 }
