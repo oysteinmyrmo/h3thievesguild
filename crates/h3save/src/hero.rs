@@ -403,6 +403,48 @@ impl Hero {
     }
 }
 
+/// Whether the bytes at `pos` look like a hero record. Used to find the hero array.
+///
+/// Every check holds for every hero record in the test saves. The army check rejects runs of
+/// zero bytes, where a creature would have a count of 0.
+#[must_use]
+pub fn is_plausible_record(data: &[u8], pos: usize) -> bool {
+    let Some(r) = pos.checked_add(HERO_RECORD_SIZE).and_then(|end| data.get(pos..end)) else {
+        return false;
+    };
+    let u16_at = |i: usize| u16::from_le_bytes([r[i], r[i + 1]]);
+    let u32_at = |i: usize| u32::from_le_bytes([r[i], r[i + 1], r[i + 2], r[i + 3]]);
+
+    let owner = r[26];
+    let unset_position = u16_at(0) == 0xFFFF && u16_at(2) == 0xFFFF && u16_at(4) == 0xFFFF;
+    let basics = r[6] <= 1
+        && (usize::from(owner) < crate::player::MAX_PLAYERS || owner == 0xFF)
+        && r[41] <= 7
+        && (unset_position || u16_at(4) <= 1);
+    if !basics {
+        return false;
+    }
+    let well_formed_army = (0..MAX_STACKS).all(|i| {
+        let id = u32_at(139 + 4 * i);
+        let count = u32_at(167 + 4 * i);
+        (id == Creature::EMPTY.0 && count == 0) || (id < 1024 && count > 0)
+    });
+    // Heroes added in HotA 1.7 and 1.8 that are not in play have an all-zero army, no owner
+    // and no position. Zero-filled data has owner 0, so it still fails.
+    let unused_record = owner == 0xFF && unset_position && r[139..195].iter().all(|&b| b == 0);
+    let army_ok = well_formed_army || unused_record;
+    let name = &r[NAME_OFFSET..NAME_OFFSET + 13];
+    let name_len = name.iter().position(|&b| b == 0).unwrap_or(name.len());
+    let name_ok = name[..name_len].iter().all(|&b| b >= 0x20 && b != 0x7F) && name[name_len..].iter().all(|&b| b == 0);
+    army_ok
+        && name_ok
+        && r[208..208 + SKILL_COUNT].iter().all(|&b| b <= 3)
+        && r[268..268 + 2 * SPELL_COUNT].iter().all(|&b| b <= 1)
+        && r[1118..1118 + SKILL_COUNT]
+            .iter()
+            .all(|&b| usize::from(b) <= SKILL_SLOT_COUNT)
+}
+
 /// Read `count` consecutive hero records starting at `pos`.
 pub(crate) fn read_all(data: &[u8], pos: usize, count: usize) -> ReadResult<Vec<Hero>> {
     (0..count)

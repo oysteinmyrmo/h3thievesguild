@@ -4,7 +4,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, open_with_towns, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]

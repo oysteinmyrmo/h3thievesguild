@@ -1,12 +1,10 @@
 // Ported from the homm3tools C++ test test-kingdom-army-strength.cpp. Expected values are unchanged.
 
-#![expect(clippy::too_many_lines, reason = "one-to-one ports of long C++ test cases")]
-
 #[macro_use]
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, open_with_towns, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -24,11 +22,7 @@ const PURPLE: u8 = 5;
 #[test]
 fn kingdom_army_strength_day1() {
     let _guard = common::Guard::new("kingdom-army-strength-day1");
-    let save = open_with_towns(
-        &data_dir("kingdom_army_strength").join("[hotseat] 111.GM3"),
-        "GreensTown",
-        3,
-    );
+    let save = open(&data_dir("kingdom_army_strength").join("[hotseat] 111.GM3"));
     require!(save.valid());
 
     let players = players(&save);
@@ -135,11 +129,7 @@ fn kingdom_army_strength_day1() {
 #[test]
 fn kingdom_army_strength_day2() {
     let _guard = common::Guard::new("kingdom-army-strength-day2");
-    let save = open_with_towns(
-        &data_dir("kingdom_army_strength").join("[hotseat] 112.GM3"),
-        "GreensTown",
-        3,
-    );
+    let save = open(&data_dir("kingdom_army_strength").join("[hotseat] 112.GM3"));
     require!(save.valid());
 
     let players = players(&save);
@@ -245,11 +235,7 @@ fn kingdom_army_strength_day2() {
 #[test]
 fn kingdom_army_strength_day3() {
     let _guard = common::Guard::new("kingdom-army-strength-day3");
-    let save = open_with_towns(
-        &data_dir("kingdom_army_strength").join("[hotseat] 113.GM3"),
-        "GreensTown",
-        3,
-    );
+    let save = open(&data_dir("kingdom_army_strength").join("[hotseat] 113.GM3"));
     require!(save.valid());
 
     let players = players(&save);
@@ -356,11 +342,7 @@ fn kingdom_army_strength_day3() {
 #[test]
 fn kingdom_army_strength_day4() {
     let _guard = common::Guard::new("kingdom-army-strength-day4");
-    let save = open_with_towns(
-        &data_dir("kingdom_army_strength").join("[hotseat] 114.GM3"),
-        "GreensTown",
-        3,
-    );
+    let save = open(&data_dir("kingdom_army_strength").join("[hotseat] 114.GM3"));
     require!(save.valid());
 
     let players = players(&save);
@@ -470,11 +452,7 @@ fn kingdom_army_strength_day4() {
 #[test]
 fn kingdom_army_strength_day5() {
     let _guard = common::Guard::new("kingdom-army-strength-day5");
-    let save = open_with_towns(
-        &data_dir("kingdom_army_strength").join("[hotseat] 115.GM3"),
-        "GreensTown",
-        3,
-    );
+    let save = open(&data_dir("kingdom_army_strength").join("[hotseat] 115.GM3"));
     require!(save.valid());
 
     let players = players(&save);

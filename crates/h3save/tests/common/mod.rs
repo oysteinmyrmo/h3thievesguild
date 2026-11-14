@@ -10,7 +10,7 @@ use std::cell::Cell;
 use std::path::{Path, PathBuf};
 
 use h3save::creatures::MAX_STACKS;
-use h3save::{Creature, Hero, Input, SaveFile, Town};
+use h3save::{Creature, Hero, SaveFile, Town};
 
 thread_local! {
     static CHECKS: Cell<usize> = const { Cell::new(0) };
@@ -74,15 +74,9 @@ pub fn data_dir(group: &str) -> PathBuf {
         .join(group)
 }
 
-/// Read a save whose towns all have default names.
+/// Read a save, failing the test with the path and error if it cannot be read.
 pub fn open(path: &Path) -> SaveFile {
-    SaveFile::read(&Input::new(path)).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
-}
-
-/// Read a save with renamed towns.
-pub fn open_with_towns(path: &Path, first_town_name: &str, number_of_towns: usize) -> SaveFile {
-    SaveFile::read(&Input::with_towns(path, first_town_name, number_of_towns))
-        .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+    SaveFile::read(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
 /// `SaveFile::findHero`. The C++ version returns a default hero when not found; every test

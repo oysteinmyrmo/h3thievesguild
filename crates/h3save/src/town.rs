@@ -9,8 +9,15 @@ use crate::stats;
 
 pub use names::TOWN_NAMES;
 
-/// Size of a town record without its name, in a HotA 1.8 save.
+/// Size of a town record without its name, in a HotA 1.8 save: the index byte plus the
+/// town's data from its owner byte on.
 pub const TOWN_SIZE_WITHOUT_NAME: usize = 567;
+
+/// Longest town name accepted when looking for the town block. The game's own limit is lower.
+pub const MAX_NAME_SIZE: usize = 32;
+
+/// Largest possible town record.
+pub const MAX_RECORD_SIZE: usize = TOWN_SIZE_WITHOUT_NAME + MAX_NAME_SIZE;
 
 /// Offset from the start of a town record (the owner byte) to the name.
 pub const NAME_OFFSET: usize = 71;
@@ -111,7 +118,7 @@ impl Town {
         })
     }
 
-    /// Size of this town's record in the save file.
+    /// Size of this town's record in the save file, including its index byte.
     #[must_use]
     pub fn record_size(&self) -> usize {
         TOWN_SIZE_WITHOUT_NAME + usize::from(self.name_size)
@@ -130,13 +137,43 @@ impl Town {
     }
 }
 
-/// Read `count` consecutive town records starting at `pos`.
-pub(crate) fn read_all(data: &[u8], mut pos: usize, count: usize) -> ReadResult<Vec<Town>> {
-    let mut towns = Vec::with_capacity(count);
-    for _ in 0..count {
-        let town = Town::read(data, pos)?;
-        pos += town.record_size();
+impl Town {
+    /// Whether the fields look like a real town. Used to tell the town block from other data.
+    fn is_plausible(&self) -> bool {
+        let owner_ok = usize::from(self.owner) < crate::player::MAX_PLAYERS || self.owner == NO_OWNER;
+        let name_size = usize::from(self.name_size);
+        owner_ok
+            && self.town_type.is_known()
+            && self.z <= 1
+            && (1..=MAX_NAME_SIZE).contains(&name_size)
+            && self.name.chars().all(|c| !c.is_control())
+    }
+}
+
+/// Read the town block starting at its count byte.
+///
+/// The block is a count byte, then for each town its index (0, 1, 2, …) and its data. Returns
+/// the towns and the position right after the block, or `None` if the data at `pos` is not a
+/// town block: an index out of order, an implausible town, or the data ending early.
+#[must_use]
+pub fn read_block(data: &[u8], pos: usize) -> Option<(Vec<Town>, usize)> {
+    let count = *data.get(pos)?;
+    if usize::from(count) > MAX_TOWNS {
+        return None;
+    }
+    let mut towns = Vec::with_capacity(usize::from(count));
+    let mut index_pos = pos + 1;
+    for index in 0..count {
+        if *data.get(index_pos)? != index {
+            return None;
+        }
+        let town = Town::read(data, index_pos + 1).ok()?;
+        if !town.is_plausible() {
+            return None;
+        }
+        index_pos += town.record_size();
         towns.push(town);
     }
-    Ok(towns)
+    // `index_pos` now points one past the last town's data.
+    Some((towns, index_pos))
 }

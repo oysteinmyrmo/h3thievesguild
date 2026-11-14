@@ -1,13 +1,13 @@
 //! Parser for Heroes of Might and Magic III: Horn of the Abyss save files.
 //!
-//! The first iteration is a port of the `homm3tools` C++ parser. It supports
-//! HotA 1.8 saves and finds heroes and towns the same way the C++ code does:
-//! by searching for the first hero's name and for town names.
+//! Supports HotA 1.8 saves. The player, town and hero records are found by the shape of
+//! their data, so maps with renamed heroes and towns read the same as any other; see
+//! [`savefile`] for how.
 //!
 //! ```no_run
-//! use h3save::{Input, SaveFile, player::players};
+//! use h3save::{SaveFile, player::players};
 //!
-//! let save = SaveFile::read(&Input::new("[hotseat] 111.GM2"))?;
+//! let save = SaveFile::read("[hotseat] 111.GM2")?;
 //! for player in players(&save).iter().filter(|p| p.alive()) {
 //!     println!("{:?}: {} gold, army strength {}", player.color(), player.gold(), player.kingdom_army_strength());
 //! }
@@ -31,7 +31,7 @@ pub use artifacts::{Artifact, ArtifactClass, ArtifactDetails, ArtifactEntry, Art
 pub use creatures::Creature;
 pub use hero::{Hero, Orientation};
 pub use player::{Color, ColorRgb, Player, PlayerData};
-pub use savefile::{Error, Input, MapSize, SaveFile};
+pub use savefile::{Error, Layout, MapSize, SaveFile};
 pub use skills::{Skill, SkillLevel, SkillSlot, SkillSlots};
 pub use spells::Spell;
 pub use town::{Town, TownType};

@@ -79,11 +79,3 @@ impl<'a> Reader<'a> {
 pub(crate) fn latin1(bytes: &[u8]) -> String {
     bytes.iter().map(|&b| char::from(b)).collect()
 }
-
-/// Index of the first occurrence of `needle` in `haystack`, like `std::search` in C++.
-pub(crate) fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack.windows(needle.len()).position(|window| window == needle)
-}

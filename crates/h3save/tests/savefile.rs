@@ -4,7 +4,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, open_with_towns, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -19,7 +19,7 @@ use h3save::player::players;
 #[test]
 fn savefile_s() {
     let _guard = common::Guard::new("savefile-S");
-    let save = open_with_towns(&data_dir("savefile").join("S").join("[hotseat] 111.GM2"), "RedsTown", 2);
+    let save = open(&data_dir("savefile").join("S").join("[hotseat] 111.GM2"));
 
     require!(save.valid());
     require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);
@@ -85,11 +85,7 @@ fn savefile_s() {
 #[test]
 fn savefile_s_u() {
     let _guard = common::Guard::new("savefile-S_U");
-    let save = open_with_towns(
-        &data_dir("savefile").join("S_U").join("[hotseat] 111.GM2"),
-        "RedsTown",
-        4,
-    );
+    let save = open(&data_dir("savefile").join("S_U").join("[hotseat] 111.GM2"));
 
     require!(save.valid());
     require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);
@@ -179,7 +175,7 @@ fn savefile_s_u() {
 #[test]
 fn savefile_m() {
     let _guard = common::Guard::new("savefile-M");
-    let save = open_with_towns(&data_dir("savefile").join("M").join("[hotseat] 111.GM2"), "RedsTown", 2);
+    let save = open(&data_dir("savefile").join("M").join("[hotseat] 111.GM2"));
 
     require!(save.valid());
     require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);
@@ -245,11 +241,7 @@ fn savefile_m() {
 #[test]
 fn savefile_m_u() {
     let _guard = common::Guard::new("savefile-M_U");
-    let save = open_with_towns(
-        &data_dir("savefile").join("M_U").join("[hotseat] 111.GM2"),
-        "RedsTown",
-        4,
-    );
+    let save = open(&data_dir("savefile").join("M_U").join("[hotseat] 111.GM2"));
 
     require!(save.valid());
     require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);

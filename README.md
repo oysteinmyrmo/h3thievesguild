@@ -11,8 +11,8 @@ saves and charts each player's progress over the game.
 First iteration: the save parser, ported from the homm3tools C++ code, with its full test suite.
 
 - Supports **HotA 1.8** saves only.
-- Finds heroes and towns the same way the C++ code does: by searching for the first hero's name
-  (Orrin) and for town names. Replacing this with a sequential parse is the next step.
+- Finds the town and hero records by the shape of their data rather than by searching for hero
+  and town names, so maps with renamed heroes and towns need no extra input.
 - Creature, artifact and town name tables do not yet include the Factory and Bulwark additions.
   Unknown IDs are kept as raw values (for example `Creature(190)`); unknown creatures count as 0
   towards army strength.
@@ -41,20 +41,13 @@ cargo test -- --nocapture --test-threads=1
 
 ## Usage
 
-```rust
-use h3save::{Input, SaveFile, player::players};
+```rust,no_run
+use h3save::{SaveFile, player::players};
 
-let save = SaveFile::read(&Input::new("[hotseat] 111.GM2"))?;
+let save = SaveFile::read("[hotseat] 111.GM2")?;
 for player in players(&save).iter().filter(|p| p.alive()) {
     println!("{:?}: {} gold, army strength {}", player.color(), player.gold(), player.kingdom_army_strength());
 }
 # Ok::<(), h3save::Error>(())
 ```
 
-When a map renames towns, give red player's start town and the number of towns:
-
-```rust,no_run
-# use h3save::{Input, SaveFile};
-let save = SaveFile::read(&Input::with_towns("[hotseat] 111.GM2", "RedsTown", 4))?;
-# Ok::<(), h3save::Error>(())
-```
