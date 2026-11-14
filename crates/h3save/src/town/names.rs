@@ -1,7 +1,7 @@
 // Generated from the homm3tools C++ sources. Edit by hand from here on.
 
-/// Default town names, used to find towns when the map does not rename them.
-/// From <https://heroes.thelazy.net/index.php/List_of_all_town_names>.
+/// Default town names, 16 per town type: Castle through Cove, then Bulwark. Factory's are not
+/// in the list yet. From <https://heroes.thelazy.net/index.php/List_of_all_town_names>.
 pub const TOWN_NAMES: &[&str] = &[
     "Alexandretta",
     "Armitage",
@@ -163,4 +163,21 @@ pub const TOWN_NAMES: &[&str] = &[
     "Walendale",
     "Watergate",
     "Westland Pier",
+    // Bulwark, new in HotA 1.8, from <https://heroes.thelazy.net/index.php/Bulwark>.
+    "Alfheim",
+    "Anabar",
+    "Borea",
+    "Ellesmere",
+    "Everwinter",
+    "Halsmere",
+    "Jotunngard",
+    "Ketpall",
+    "Meghion",
+    "Stonefang",
+    "Thulekh",
+    "Tundara",
+    "Varand",
+    "White Mouth",
+    "Windskalir",
+    "Winterkill",
 ];

@@ -35,7 +35,7 @@ id_type! {
         RESISTANCE = 26 => "Resistance",
         FIRST_AID = 27 => "FirstAid",
         INTERFERENCE = 28 => "Interference",
-        /// New in HotA 1.8. (Not tested.)
+        /// New in HotA 1.8, with the Bulwark town.
         RUNES = 29 => "Runes",
         /// Helper for Hero class.
         NONE = 31 => "NONE",

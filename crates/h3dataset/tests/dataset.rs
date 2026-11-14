@@ -292,6 +292,7 @@ fn heroes_in_a_garrison_count_but_are_not_on_the_map() {
 fn every_test_folder_of_one_game_gives_a_consistent_data_set() {
     let folders = [
         "artifacts",
+        "bulwark",
         "creatures",
         "experience",
         "hero_town",
