@@ -25,10 +25,9 @@ impl<'a> Reader<'a> {
     }
 
     pub fn bytes(&mut self, len: usize) -> ReadResult<&'a [u8]> {
-        let end = self.pos.checked_add(len).filter(|&end| end <= self.data.len());
-        match end {
-            Some(end) => {
-                let slice = &self.data[self.pos..end];
+        let end = self.pos.checked_add(len);
+        match end.and_then(|end| self.data.get(self.pos..end).map(|slice| (end, slice))) {
+            Some((end, slice)) => {
                 self.pos = end;
                 Ok(slice)
             }
@@ -41,9 +40,8 @@ impl<'a> Reader<'a> {
     }
 
     pub fn array<const N: usize>(&mut self) -> ReadResult<[u8; N]> {
-        let mut out = [0u8; N];
-        out.copy_from_slice(self.bytes(N)?);
-        Ok(out)
+        let pos = self.pos;
+        self.bytes(N)?.try_into().map_err(|_| OutOfBounds { pos, len: N })
     }
 
     pub fn u8(&mut self) -> ReadResult<u8> {
@@ -59,20 +57,29 @@ impl<'a> Reader<'a> {
     }
 
     /// `N` consecutive values read with `read`.
-    pub fn each<T, const N: usize>(&mut self, mut read: impl FnMut(&mut Self) -> ReadResult<T>) -> ReadResult<[T; N]> {
-        let mut out = Vec::with_capacity(N);
-        for _ in 0..N {
-            out.push(read(self)?);
+    pub fn each<T: Copy + Default, const N: usize>(
+        &mut self,
+        mut read: impl FnMut(&mut Self) -> ReadResult<T>,
+    ) -> ReadResult<[T; N]> {
+        let mut out = [T::default(); N];
+        for value in &mut out {
+            *value = read(self)?;
         }
-        Ok(out
-            .try_into()
-            .unwrap_or_else(|_| unreachable!("exactly N values were pushed")))
+        Ok(out)
     }
 
     /// A string of `len` bytes. Bytes are taken as Latin-1, which is what the game uses.
     pub fn string(&mut self, len: usize) -> ReadResult<String> {
         Ok(latin1(self.bytes(len)?))
     }
+}
+
+/// Position of record `index` in an array of `size`-byte records starting at `start`.
+pub(crate) fn record_pos(start: usize, index: usize, size: usize) -> ReadResult<usize> {
+    index
+        .checked_mul(size)
+        .and_then(|offset| start.checked_add(offset))
+        .ok_or(OutOfBounds { pos: start, len: size })
 }
 
 /// Decode Latin-1 bytes. Each byte maps to the Unicode code point of the same value.

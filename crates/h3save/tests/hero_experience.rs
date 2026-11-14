@@ -4,7 +4,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -17,6 +17,7 @@ use h3save::{
 fn hero_experience_day1() {
     let _guard = common::Guard::new("hero-experience-day1");
     let save = open(&data_dir("experience").join("[hotseat] 111.GM2"));
+    test_date(&save, 1, 1, 1);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -44,6 +45,7 @@ fn hero_experience_day1() {
 fn hero_experience_day2() {
     let _guard = common::Guard::new("hero-experience-day2");
     let save = open(&data_dir("experience").join("[hotseat] 112.GM2"));
+    test_date(&save, 1, 1, 2);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -71,6 +73,7 @@ fn hero_experience_day2() {
 fn hero_experience_day3() {
     let _guard = common::Guard::new("hero-experience-day3");
     let save = open(&data_dir("experience").join("[hotseat] 113.GM2"));
+    test_date(&save, 1, 1, 3);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -98,6 +101,7 @@ fn hero_experience_day3() {
 fn hero_experience_day4() {
     let _guard = common::Guard::new("hero-experience-day4");
     let save = open(&data_dir("experience").join("[hotseat] 114.GM2"));
+    test_date(&save, 1, 1, 4);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -125,6 +129,7 @@ fn hero_experience_day4() {
 fn hero_experience_day5() {
     let _guard = common::Guard::new("hero-experience-day5");
     let save = open(&data_dir("experience").join("[hotseat] 115.GM2"));
+    test_date(&save, 1, 1, 5);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -152,6 +157,7 @@ fn hero_experience_day5() {
 fn hero_experience_day6() {
     let _guard = common::Guard::new("hero-experience-day6");
     let save = open(&data_dir("experience").join("[hotseat] 116.GM2"));
+    test_date(&save, 1, 1, 6);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -179,6 +185,7 @@ fn hero_experience_day6() {
 fn hero_experience_day7() {
     let _guard = common::Guard::new("hero-experience-day7");
     let save = open(&data_dir("experience").join("[hotseat] 117.GM2"));
+    test_date(&save, 1, 1, 7);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -206,6 +213,7 @@ fn hero_experience_day7() {
 fn hero_experience_day8() {
     let _guard = common::Guard::new("hero-experience-day8");
     let save = open(&data_dir("experience").join("[hotseat] 121.GM2"));
+    test_date(&save, 1, 2, 1);
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);

@@ -1,7 +1,7 @@
 //! Players and their resources.
 
 use crate::hero::Hero;
-use crate::reader::{ReadResult, Reader};
+use crate::reader::{ReadResult, Reader, record_pos};
 use crate::savefile::SaveFile;
 use crate::town::Town;
 
@@ -10,6 +10,12 @@ pub const MAX_PLAYERS: usize = 8;
 
 /// Size of one player record.
 pub const PLAYER_RECORD_SIZE: usize = 149;
+
+/// Most heroes a player can have on the map.
+pub const MAX_HEROES_ON_MAP: usize = 8;
+
+/// Stands for no hero or town in the player record's ID fields.
+pub const NONE: u8 = 0xFF;
 
 /// A player colour. The discriminant is the player's index in the save.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -43,13 +49,22 @@ impl Color {
 
     #[must_use]
     pub fn name(self) -> &'static str {
-        ["Red", "Blue", "Tan", "Green", "Orange", "Purple", "Teal", "Pink"][self.index()]
+        match self {
+            Color::Red => "Red",
+            Color::Blue => "Blue",
+            Color::Tan => "Tan",
+            Color::Green => "Green",
+            Color::Orange => "Orange",
+            Color::Purple => "Purple",
+            Color::Teal => "Teal",
+            Color::Pink => "Pink",
+        }
     }
 
     /// The colour used in game.
     #[must_use]
     pub fn rgb(self) -> ColorRgb {
-        PLAYER_COLORS[self.index()]
+        PLAYER_COLORS.get(self.index()).copied().unwrap_or_default()
     }
 }
 
@@ -73,9 +88,35 @@ pub const PLAYER_COLORS: [ColorRgb; MAX_PLAYERS] = [
     ColorRgb { r: 192, g: 120, b: 136 },
 ];
 
-/// One player record: the player's resources.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+/// One player record: the player's heroes on the map, towns and resources.
+///
+/// Byte offsets from the start of the record:
+///
+/// | Offset | Size | Field |
+/// | --- | --- | --- |
+/// | 0 | 1 | Player index, 0–7 (the colour) |
+/// | 1 | 1 | Number of heroes on the map |
+/// | 2 | 1 | Selected hero |
+/// | 3 | 8 | Hero IDs of the heroes on the map, in the player's order |
+/// | 24 | 1 | Number of towns |
+/// | 25 | 1 | Selected town |
+/// | 26 | 48 | Town IDs: indices into the save's towns |
+/// | 98 | 28 | Resources: wood, mercury, ore, sulfur, crystal, gems, gold as `u32` |
+///
+/// Unused ID slots and no selection hold [`NONE`]. Heroes in a town garrison are not on the
+/// map, so they are owned but not listed here.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PlayerData {
+    /// Heroes on the map; the first `hero_count` entries of `hero_ids` are used.
+    pub hero_count: u8,
+    /// The selected hero's ID, or [`NONE`].
+    pub selected_hero: u8,
+    pub hero_ids: [u8; MAX_HEROES_ON_MAP],
+    /// Towns owned; the first `town_count` entries of `town_ids` are used.
+    pub town_count: u8,
+    /// The selected town's index, or [`NONE`].
+    pub selected_town: u8,
+    pub town_ids: [u8; crate::town::MAX_TOWNS],
     pub wood: u32,
     pub mercury: u32,
     pub ore: u32,
@@ -85,11 +126,47 @@ pub struct PlayerData {
     pub gold: u32,
 }
 
+impl Default for PlayerData {
+    /// A player with no heroes, towns or resources.
+    fn default() -> Self {
+        PlayerData {
+            hero_count: 0,
+            selected_hero: NONE,
+            hero_ids: [NONE; MAX_HEROES_ON_MAP],
+            town_count: 0,
+            selected_town: NONE,
+            town_ids: [NONE; crate::town::MAX_TOWNS],
+            wood: 0,
+            mercury: 0,
+            ore: 0,
+            sulfur: 0,
+            crystal: 0,
+            gems: 0,
+            gold: 0,
+        }
+    }
+}
+
 impl PlayerData {
-    pub(crate) fn read(data: &[u8], pos: usize) -> ReadResult<PlayerData> {
+    /// Read a record, returning its player index too.
+    pub(crate) fn read(data: &[u8], pos: usize) -> ReadResult<(u8, PlayerData)> {
         let mut r = Reader::at(data, pos);
-        r.skip(96)?;
+        let index = r.u8()?;
+        let hero_count = r.u8()?;
+        let selected_hero = r.u8()?;
+        let hero_ids = r.array()?;
+        r.skip(13)?;
+        let town_count = r.u8()?;
+        let selected_town = r.u8()?;
+        let town_ids = r.array()?;
+        r.skip(24)?;
         let player = PlayerData {
+            hero_count,
+            selected_hero,
+            hero_ids,
+            town_count,
+            selected_town,
+            town_ids,
             wood: r.u32()?,
             mercury: r.u32()?,
             ore: r.u32()?,
@@ -98,18 +175,56 @@ impl PlayerData {
             gems: r.u32()?,
             gold: r.u32()?,
         };
-        r.skip(25)?;
-        Ok(player)
+        r.skip(23)?;
+        debug_assert_eq!(r.pos().wrapping_sub(pos), PLAYER_RECORD_SIZE);
+        Ok((index, player))
+    }
+
+    /// IDs of the heroes on the map, in the player's order.
+    #[must_use]
+    pub fn hero_ids_on_map(&self) -> &[u8] {
+        self.hero_ids
+            .get(..usize::from(self.hero_count))
+            .unwrap_or(&self.hero_ids)
+    }
+
+    /// Indices of the player's towns in the save, in the player's order.
+    #[must_use]
+    pub fn town_indices(&self) -> &[u8] {
+        self.town_ids
+            .get(..usize::from(self.town_count))
+            .unwrap_or(&self.town_ids)
+    }
+
+    /// Whether the record holds together: counts within range, used IDs below `heroes` and
+    /// `towns`, unused ID slots empty, and any selection one of the player's own.
+    #[must_use]
+    pub fn is_plausible(&self, heroes: usize, towns: usize) -> bool {
+        fn ids_ok(ids: &[u8], count: u8, limit: usize, selected: u8) -> bool {
+            let Some((used, unused)) = ids.split_at_checked(usize::from(count)) else {
+                return false;
+            };
+            used.iter().all(|&id| usize::from(id) < limit && id != NONE)
+                && unused.iter().all(|&id| id == NONE)
+                && (selected == NONE || used.contains(&selected))
+        }
+        ids_ok(&self.hero_ids, self.hero_count, heroes, self.selected_hero)
+            && ids_ok(&self.town_ids, self.town_count, towns, self.selected_town)
     }
 }
 
-/// Read the eight player records starting at `pos`.
-pub(crate) fn read_all(data: &[u8], pos: usize) -> ReadResult<[PlayerData; MAX_PLAYERS]> {
+/// Read the eight player records starting at `pos`, or `None` unless every record carries its
+/// own index and is [plausible](PlayerData::is_plausible).
+pub(crate) fn read_all(data: &[u8], pos: usize, heroes: usize, towns: usize) -> Option<[PlayerData; MAX_PLAYERS]> {
     let mut players = [PlayerData::default(); MAX_PLAYERS];
-    for (i, player) in players.iter_mut().enumerate() {
-        *player = PlayerData::read(data, pos + i * PLAYER_RECORD_SIZE)?;
+    for (i, (player, index)) in players.iter_mut().zip(0u8..).enumerate() {
+        let (found_index, record) = PlayerData::read(data, record_pos(pos, i, PLAYER_RECORD_SIZE).ok()?).ok()?;
+        if found_index != index || !record.is_plausible(heroes, towns) {
+            return None;
+        }
+        *player = record;
     }
-    Ok(players)
+    Some(players)
 }
 
 /// A player with its resources, heroes and towns gathered from a save.
@@ -150,8 +265,9 @@ impl Player {
 
     /// Sum of the army strength of all heroes and town garrisons.
     pub fn kingdom_army_strength(&self) -> u64 {
-        self.heroes.iter().map(Hero::army_strength).sum::<u64>()
-            + self.towns.iter().map(Town::army_strength).sum::<u64>()
+        let heroes = self.heroes.iter().map(Hero::army_strength);
+        let towns = self.towns.iter().map(Town::army_strength);
+        heroes.chain(towns).fold(0, u64::saturating_add)
     }
 
     /// Highest AI value among the best creatures of every hero and town.
@@ -200,7 +316,7 @@ impl Player {
 pub fn players(save: &SaveFile) -> [Player; MAX_PLAYERS] {
     let mut players = Color::ALL.map(|color| Player {
         color,
-        data: save.players[color.index()],
+        data: save.players.get(color.index()).copied().unwrap_or_default(),
         heroes: Vec::new(),
         towns: Vec::new(),
     });

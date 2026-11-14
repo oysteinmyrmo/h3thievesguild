@@ -8,7 +8,9 @@
 //! 2. The town block ends exactly where the heroes begin. It starts with a town count byte,
 //!    followed by each town's index (0, 1, 2, …) and record. It is found by looking backwards
 //!    from the heroes for the count byte from which the towns read through to the heroes.
-//! 3. The eight player records end two bytes after the town count byte.
+//! 3. The eight player records end right where the town block starts. Each record starts with
+//!    its player index, and its hero and town IDs must be in range.
+//! 4. The date is a fixed distance after the end of the hero array; see [`crate::date`].
 
 use std::fmt;
 use std::io::Read;
@@ -16,16 +18,20 @@ use std::path::Path;
 
 use flate2::read::GzDecoder;
 
+use crate::date::{self, Date};
 use crate::hero::{self, HERO_RECORD_SIZE, Hero};
 use crate::id_type;
 use crate::player::{self, MAX_PLAYERS, PLAYER_RECORD_SIZE, PlayerData};
-use crate::reader::{OutOfBounds, Reader};
+use crate::reader::{OutOfBounds, Reader, record_pos};
 use crate::town::{self, MAX_TOWNS, Town};
 
 /// Magic bytes of a scenario save, including the trailing null byte.
 pub const HEADER_NORMAL: &[u8; 6] = b"H3SVG\0";
 /// Magic bytes of a campaign save, including the trailing null byte.
 pub const HEADER_CAMPAIGN: &[u8; 6] = b"H3SVC\0";
+/// Largest decompressed save accepted, 64 MiB. Saves of the largest maps are well below this;
+/// the limit keeps a malicious file from decompressing into gigabytes.
+pub const MAX_DECOMPRESSED_SIZE: usize = 64 << 20;
 
 id_type! {
     /// Map size in tiles per side. All maps are square and may have an underground level.
@@ -47,6 +53,8 @@ pub enum Error {
     Io(std::io::Error),
     /// The file does not decompress, or decompresses to something that is not a save.
     NotASaveFile,
+    /// The file decompresses to more than [`MAX_DECOMPRESSED_SIZE`] bytes.
+    TooLarge,
     /// A record ran past the end of the decompressed data.
     Truncated {
         pos: usize,
@@ -61,6 +69,11 @@ pub enum Error {
     },
     /// No town block ends where the hero array starts.
     TownsNotFound,
+    /// The eight player records before the town block do not hold together.
+    PlayersNotFound,
+    /// The date after the hero array is not a valid date. Holds the stored day, week and
+    /// month bytes.
+    InvalidDate([u8; date::SIZE]),
 }
 
 impl fmt::Display for Error {
@@ -68,12 +81,15 @@ impl fmt::Display for Error {
         match self {
             Error::Io(e) => write!(f, "could not read the save file: {e}"),
             Error::NotASaveFile => write!(f, "not a Heroes 3 save file"),
+            Error::TooLarge => write!(f, "save data is larger than {MAX_DECOMPRESSED_SIZE} bytes"),
             Error::Truncated { pos, len } => write!(f, "save data ends before a {len}-byte read at offset {pos}"),
             Error::HeroesNotFound => write!(f, "could not find the hero records"),
             Error::AmbiguousHeroes { first, second } => {
                 write!(f, "found hero records at both offset {first} and offset {second}")
             }
             Error::TownsNotFound => write!(f, "could not find the town records"),
+            Error::PlayersNotFound => write!(f, "could not find the player records"),
+            Error::InvalidDate(bytes) => write!(f, "invalid in-game date bytes {bytes:02x?}"),
         }
     }
 }
@@ -115,13 +131,19 @@ pub fn decompress_file(path: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
 ///
 /// # Errors
 ///
-/// [`Error::NotASaveFile`] if the data is not gzip or does not start with a save header.
+/// [`Error::NotASaveFile`] if the data is not gzip or does not start with a save header, and
+/// [`Error::TooLarge`] if it decompresses to more than [`MAX_DECOMPRESSED_SIZE`] bytes.
 pub fn decompress(compressed: &[u8]) -> Result<Vec<u8>, Error> {
-    let mut out = Vec::with_capacity(compressed.len() * 16);
+    let mut out = Vec::with_capacity(compressed.len().saturating_mul(16).min(MAX_DECOMPRESSED_SIZE));
+    // Read one byte past the limit to tell a save of exactly the limit from a larger one.
+    let limit = u64::try_from(MAX_DECOMPRESSED_SIZE).map_or(u64::MAX, |n| n.saturating_add(1));
     // On error, `read_to_end` keeps the bytes read so far. Only the trailer check can fail
     // after data has come out, so an error with data is the expected end of a save.
-    if GzDecoder::new(compressed).read_to_end(&mut out).is_err() && out.is_empty() {
+    if GzDecoder::new(compressed).take(limit).read_to_end(&mut out).is_err() && out.is_empty() {
         return Err(Error::NotASaveFile);
+    }
+    if out.len() > MAX_DECOMPRESSED_SIZE {
+        return Err(Error::TooLarge);
     }
     if out.len() < HEADER_NORMAL.len() || !is_save_header(&out) {
         return Err(Error::NotASaveFile);
@@ -149,19 +171,16 @@ impl Layout {
     ///
     /// # Errors
     ///
-    /// [`Error::HeroesNotFound`], [`Error::AmbiguousHeroes`] or [`Error::TownsNotFound`] when a
-    /// block cannot be found, and [`Error::Truncated`] if the players would start before the data.
+    /// [`Error::HeroesNotFound`], [`Error::AmbiguousHeroes`], [`Error::TownsNotFound`] or
+    /// [`Error::PlayersNotFound`] when a block cannot be found.
     pub fn find(data: &[u8], hero_count: usize) -> Result<Layout, Error> {
         let heroes = find_heroes(data, hero_count)?;
         let town_count = find_town_count(data, heroes).ok_or(Error::TownsNotFound)?;
-        // The player records, as read, end two bytes past the town count byte (the count and
-        // town 0's index). Kept from the C++ code, where resources are read at these offsets.
-        let players = (town_count + 2)
+        let towns = data.get(town_count).map_or(0, |&n| usize::from(n));
+        let players = town_count
             .checked_sub(MAX_PLAYERS * PLAYER_RECORD_SIZE)
-            .ok_or(Error::Truncated {
-                pos: 0,
-                len: MAX_PLAYERS * PLAYER_RECORD_SIZE,
-            })?;
+            .ok_or(Error::PlayersNotFound)?;
+        player::read_all(data, players, hero_count, towns).ok_or(Error::PlayersNotFound)?;
         Ok(Layout {
             players,
             town_count,
@@ -186,7 +205,9 @@ pub fn find_heroes(data: &[u8], hero_count: usize) -> Result<usize, Error> {
         if !hero::is_plausible_record(data, pos) {
             continue;
         }
-        if (1..hero_count).all(|i| hero::is_plausible_record(data, pos + i * HERO_RECORD_SIZE)) {
+        let all_plausible = (1..hero_count)
+            .all(|i| record_pos(pos, i, HERO_RECORD_SIZE).is_ok_and(|record| hero::is_plausible_record(data, record)));
+        if all_plausible {
             match found {
                 None => found = Some(pos),
                 Some(first) => return Err(Error::AmbiguousHeroes { first, second: pos }),
@@ -207,7 +228,8 @@ pub fn find_town_count(data: &[u8], heroes: usize) -> Option<usize> {
     let lowest = heroes.saturating_sub(max_block);
     let mut best: Option<(usize, usize)> = None;
     for pos in (lowest..heroes).rev() {
-        let count = usize::from(data[pos]);
+        let Some(&count) = data.get(pos) else { continue };
+        let count = usize::from(count);
         if count > MAX_TOWNS || best.is_some_and(|(_, n)| n >= count) {
             continue;
         }
@@ -218,6 +240,18 @@ pub fn find_town_count(data: &[u8], heroes: usize) -> Option<usize> {
         }
     }
     best.map(|(pos, _)| pos)
+}
+
+/// The date stored after the hero array that ends at `heroes_end`.
+fn read_date(data: &[u8], heroes_end: usize) -> Result<Date, Error> {
+    let pos = heroes_end
+        .checked_add(date::OFFSET_AFTER_HEROES)
+        .ok_or(Error::Truncated {
+            pos: heroes_end,
+            len: date::OFFSET_AFTER_HEROES,
+        })?;
+    let bytes = Reader::at(data, pos).array()?;
+    Date::from_bytes(bytes).ok_or(Error::InvalidDate(bytes))
 }
 
 /// A parsed save file.
@@ -238,6 +272,8 @@ pub struct SaveFile {
     pub description_size: u16,
     /// Byte 99 + map name size.
     pub description: String,
+    /// The in-game date when the game was saved.
+    pub date: Date,
 
     pub players: [PlayerData; MAX_PLAYERS],
     pub towns: Vec<Town>,
@@ -258,8 +294,8 @@ impl SaveFile {
     ///
     /// # Errors
     ///
-    /// [`Error::Truncated`] if a record runs past the end of the data, and the errors of
-    /// [`Layout::find`].
+    /// [`Error::Truncated`] if a record runs past the end of the data, [`Error::InvalidDate`]
+    /// if the date is out of range, and the errors of [`Layout::find`].
     pub fn parse(data: &[u8]) -> Result<SaveFile, Error> {
         let mut r = Reader::at(data, 0);
         let header = r.array()?;
@@ -276,7 +312,9 @@ impl SaveFile {
 
         let hero_count_usize = usize::try_from(hero_count).map_err(|_| Error::HeroesNotFound)?;
         let layout = Layout::find(data, hero_count_usize)?;
-        let players = player::read_all(data, layout.players)?;
+        let towns_in_block = data.get(layout.town_count).map_or(0, |&n| usize::from(n));
+        let players =
+            player::read_all(data, layout.players, hero_count_usize, towns_in_block).ok_or(Error::PlayersNotFound)?;
         let (towns, _) = town::read_block(data, layout.town_count).ok_or(Error::TownsNotFound)?;
         let heroes = hero::read_all(data, layout.heroes, hero_count_usize)?;
 
@@ -289,6 +327,7 @@ impl SaveFile {
             map_name,
             description_size,
             description,
+            date: read_date(data, record_pos(layout.heroes, hero_count_usize, HERO_RECORD_SIZE)?)?,
             players,
             towns,
             heroes,

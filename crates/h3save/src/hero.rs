@@ -3,7 +3,7 @@
 use crate::artifacts::{ARTIFACT_SLOT_COUNT, Artifact, ArtifactDetails, ArtifactEntry, ArtifactSlot};
 use crate::creatures::{Creature, MAX_STACKS};
 use crate::id_type;
-use crate::reader::{ReadResult, Reader, latin1};
+use crate::reader::{ReadResult, Reader, latin1, record_pos};
 use crate::skills::{SKILL_COUNT, SKILL_SLOT_COUNT, Skill, SkillLevel, SkillSlot, SkillSlots};
 use crate::spells::{SPELL_COUNT, Spell};
 use crate::stats;
@@ -152,11 +152,11 @@ impl Hero {
         let spell_points = r.u16()?;
         let level = r.u8()?;
         r.skip(63)?;
-        let creatures = r.each(|r| r.u32().map(Creature))?;
+        let creatures = r.each(Reader::u32)?.map(Creature);
         let creature_count = r.each(Reader::u32)?;
-        debug_assert_eq!(r.pos() - pos, NAME_OFFSET);
+        debug_assert_eq!(r.pos().wrapping_sub(pos), NAME_OFFSET);
         let name = r.array()?;
-        let skill_levels = r.each(|r| r.u8().map(SkillLevel))?;
+        let skill_levels = r.each(Reader::u8)?.map(SkillLevel);
         r.skip(26)?; // Legacy skill slots, unused.
         let attack = r.u8()?;
         let defense = r.u8()?;
@@ -164,16 +164,16 @@ impl Hero {
         let knowledge = r.u8()?;
         let spellbook = r.array()?;
         let spells = r.array()?;
-        let artifacts = r.each(|r| {
-            Ok(ArtifactEntry {
-                artifact: Artifact(r.u32()?),
-                scroll_spell_id: r.u32()?,
-            })
-        })?;
+        let artifacts = r
+            .each(|r| Ok((r.u32()?, r.u32()?)))?
+            .map(|(id, scroll_spell_id)| ArtifactEntry {
+                artifact: Artifact(id),
+                scroll_spell_id,
+            });
         r.skip(46)?;
         let skill_slots = r.array()?;
         r.skip(12)?; // New in HotA 1.8.
-        debug_assert_eq!(r.pos() - pos, HERO_RECORD_SIZE);
+        debug_assert_eq!(r.pos().wrapping_sub(pos), HERO_RECORD_SIZE);
         Ok(Hero {
             x,
             y,
@@ -208,8 +208,7 @@ impl Hero {
     /// The hero's name, up to the first null byte.
     #[must_use]
     pub fn name(&self) -> String {
-        let end = self.name.iter().position(|&b| b == 0).unwrap_or(self.name.len());
-        latin1(&self.name[..end])
+        latin1(self.name.split(|&b| b == 0).next().unwrap_or_default())
     }
 
     /// In a town garrison: owned, but not on the map.
@@ -266,8 +265,8 @@ impl Hero {
             if level == SkillLevel::NONE {
                 continue;
             }
+            // Slots count from 1. A learned skill without a valid slot is left out.
             let slot = usize::from(slot);
-            debug_assert!((1..=SKILL_SLOT_COUNT).contains(&slot), "skill slot {slot} out of range");
             if let Some(entry) = slot.checked_sub(1).and_then(|s| skills.get_mut(s)) {
                 *entry = SkillSlot::new(Skill(id), level);
             }
@@ -409,45 +408,59 @@ impl Hero {
 /// zero bytes, where a creature would have a count of 0.
 #[must_use]
 pub fn is_plausible_record(data: &[u8], pos: usize) -> bool {
-    let Some(r) = pos.checked_add(HERO_RECORD_SIZE).and_then(|end| data.get(pos..end)) else {
-        return false;
-    };
-    let u16_at = |i: usize| u16::from_le_bytes([r[i], r[i + 1]]);
-    let u32_at = |i: usize| u32::from_le_bytes([r[i], r[i + 1], r[i + 2], r[i + 3]]);
+    pos.checked_add(HERO_RECORD_SIZE)
+        .and_then(|end| data.get(pos..end))
+        .and_then(plausible_record)
+        .unwrap_or(false)
+}
 
-    let owner = r[26];
-    let unset_position = u16_at(0) == 0xFFFF && u16_at(2) == 0xFFFF && u16_at(4) == 0xFFFF;
-    let basics = r[6] <= 1
+/// The checks of [`is_plausible_record`] on one record. `None` only if `r` is too short.
+fn plausible_record(r: &[u8]) -> Option<bool> {
+    let byte = |i: usize| r.get(i).copied();
+    let u16_at = |i: usize| Some(u16::from_le_bytes(r.get(i..i.checked_add(2)?)?.try_into().ok()?));
+    let u32_le = |b: &[u8]| b.try_into().ok().map(u32::from_le_bytes);
+
+    let owner = byte(26)?;
+    let unset_position = u16_at(0)? == 0xFFFF && u16_at(2)? == 0xFFFF && u16_at(4)? == 0xFFFF;
+    let basics = byte(6)? <= 1
         && (usize::from(owner) < crate::player::MAX_PLAYERS || owner == 0xFF)
-        && r[41] <= 7
-        && (unset_position || u16_at(4) <= 1);
+        && byte(41)? <= 7
+        && (unset_position || u16_at(4)? <= 1);
     if !basics {
-        return false;
+        return Some(false);
     }
-    let well_formed_army = (0..MAX_STACKS).all(|i| {
-        let id = u32_at(139 + 4 * i);
-        let count = u32_at(167 + 4 * i);
-        (id == Creature::EMPTY.0 && count == 0) || (id < 1024 && count > 0)
-    });
+    let army = r.get(139..195)?;
+    let (ids, counts) = army.split_at_checked(4 * MAX_STACKS)?;
+    let well_formed_army =
+        ids.chunks_exact(4)
+            .zip(counts.chunks_exact(4))
+            .all(|(id, count)| match (u32_le(id), u32_le(count)) {
+                (Some(id), Some(count)) => (id == Creature::EMPTY.0 && count == 0) || (id < 1024 && count > 0),
+                _ => false,
+            });
     // Heroes added in HotA 1.7 and 1.8 that are not in play have an all-zero army, no owner
     // and no position. Zero-filled data has owner 0, so it still fails.
-    let unused_record = owner == 0xFF && unset_position && r[139..195].iter().all(|&b| b == 0);
+    let unused_record = owner == 0xFF && unset_position && army.iter().all(|&b| b == 0);
     let army_ok = well_formed_army || unused_record;
-    let name = &r[NAME_OFFSET..NAME_OFFSET + 13];
+    // A name is printable characters followed by null bytes only.
+    let name = r.get(NAME_OFFSET..NAME_OFFSET + 13)?;
     let name_len = name.iter().position(|&b| b == 0).unwrap_or(name.len());
-    let name_ok = name[..name_len].iter().all(|&b| b >= 0x20 && b != 0x7F) && name[name_len..].iter().all(|&b| b == 0);
-    army_ok
-        && name_ok
-        && r[208..208 + SKILL_COUNT].iter().all(|&b| b <= 3)
-        && r[268..268 + 2 * SPELL_COUNT].iter().all(|&b| b <= 1)
-        && r[1118..1118 + SKILL_COUNT]
-            .iter()
-            .all(|&b| usize::from(b) <= SKILL_SLOT_COUNT)
+    let (text, padding) = name.split_at_checked(name_len)?;
+    let name_ok = text.iter().all(|&b| b >= 0x20 && b != 0x7F) && padding.iter().all(|&b| b == 0);
+    Some(
+        army_ok
+            && name_ok
+            && r.get(208..208 + SKILL_COUNT)?.iter().all(|&b| b <= 3)
+            && r.get(268..268 + 2 * SPELL_COUNT)?.iter().all(|&b| b <= 1)
+            && r.get(1118..1118 + SKILL_COUNT)?
+                .iter()
+                .all(|&b| usize::from(b) <= SKILL_SLOT_COUNT),
+    )
 }
 
 /// Read `count` consecutive hero records starting at `pos`.
 pub(crate) fn read_all(data: &[u8], pos: usize, count: usize) -> ReadResult<Vec<Hero>> {
     (0..count)
-        .map(|i| Hero::read(data, pos + i * HERO_RECORD_SIZE))
+        .map(|i| Hero::read(data, record_pos(pos, i, HERO_RECORD_SIZE)?))
         .collect()
 }

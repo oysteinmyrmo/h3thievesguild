@@ -6,13 +6,17 @@ use crate::hero::Hero;
 /// AI value of one stack. Unknown creatures count as 0.
 #[must_use]
 pub fn ai_value(creature: Creature, count: u32) -> u64 {
-    u64::from(creature.ai_value().unwrap_or(0)) * u64::from(count)
+    u64::from(creature.ai_value().unwrap_or(0)).saturating_mul(u64::from(count))
 }
 
 /// Sum of the AI values of an army's stacks.
 #[must_use]
 pub fn army_ai_value(creatures: &[Creature; MAX_STACKS], counts: &[u32; MAX_STACKS]) -> u64 {
-    creatures.iter().zip(counts).map(|(&c, &n)| ai_value(c, n)).sum()
+    creatures
+        .iter()
+        .zip(counts)
+        .map(|(&c, &n)| ai_value(c, n))
+        .fold(0, u64::saturating_add)
 }
 
 /// Army strength of a hero, from <https://heroes.thelazy.net/index.php/Army_strength>.

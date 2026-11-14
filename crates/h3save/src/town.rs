@@ -100,7 +100,7 @@ impl Town {
         let y = r.u8()?;
         let z = r.u8()?;
         r.skip(2)?;
-        let creatures = r.each(|r| r.u32().map(Creature))?;
+        let creatures = r.each(Reader::u32)?.map(Creature);
         let creature_count = r.each(Reader::u32)?;
         r.skip(4)?;
         let name_size = r.u16()?;
@@ -121,7 +121,7 @@ impl Town {
     /// Size of this town's record in the save file, including its index byte.
     #[must_use]
     pub fn record_size(&self) -> usize {
-        TOWN_SIZE_WITHOUT_NAME + usize::from(self.name_size)
+        TOWN_SIZE_WITHOUT_NAME.saturating_add(usize::from(self.name_size))
     }
 
     /// AI value of the garrison.
@@ -162,16 +162,16 @@ pub fn read_block(data: &[u8], pos: usize) -> Option<(Vec<Town>, usize)> {
         return None;
     }
     let mut towns = Vec::with_capacity(usize::from(count));
-    let mut index_pos = pos + 1;
+    let mut index_pos = pos.checked_add(1)?;
     for index in 0..count {
         if *data.get(index_pos)? != index {
             return None;
         }
-        let town = Town::read(data, index_pos + 1).ok()?;
+        let town = Town::read(data, index_pos.checked_add(1)?).ok()?;
         if !town.is_plausible() {
             return None;
         }
-        index_pos += town.record_size();
+        index_pos = index_pos.checked_add(town.record_size())?;
         towns.push(town);
     }
     // `index_pos` now points one past the last town's data.

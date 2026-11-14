@@ -4,7 +4,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -29,6 +29,7 @@ fn test_skills(hero: &Hero, required: &[SkillSlot]) {
 fn secondary_skills_day1() {
     let _guard = common::Guard::new("secondary-skills-day1");
     let save = open(&data_dir("secondary_skills").join("[hotseat] 111.GM5"));
+    test_date(&save, 1, 1, 1);
     require!(save.valid());
 
     let hero = find_hero(&save, "Edric");
@@ -90,6 +91,7 @@ fn secondary_skills_day1() {
 fn secondary_skills_day2() {
     let _guard = common::Guard::new("secondary-skills-day2");
     let save = open(&data_dir("secondary_skills").join("[hotseat] 112.GM5"));
+    test_date(&save, 1, 1, 2);
     require!(save.valid());
 
     let hero = find_hero(&save, "Edric");
@@ -166,6 +168,7 @@ fn secondary_skills_day2() {
 fn secondary_skills_day3() {
     let _guard = common::Guard::new("secondary-skills-day3");
     let save = open(&data_dir("secondary_skills").join("[hotseat] 113.GM5"));
+    test_date(&save, 1, 1, 3);
     require!(save.valid());
 
     let hero = find_hero(&save, "Edric");

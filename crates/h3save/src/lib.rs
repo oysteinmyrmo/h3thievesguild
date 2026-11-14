@@ -14,11 +14,28 @@
 //! # Ok::<(), h3save::Error>(())
 //! ```
 
+// Save files come from users, so the library must not panic on any input: no indexing or
+// slicing that can go out of bounds, no unwrap, no unchecked arithmetic. Tests may.
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::indexing_slicing,
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable,
+        clippy::todo,
+        clippy::unimplemented,
+        clippy::arithmetic_side_effects
+    )
+)]
+
 mod id;
 mod reader;
 
 pub mod artifacts;
 pub mod creatures;
+pub mod date;
 pub mod hero;
 pub mod player;
 pub mod savefile;
@@ -29,6 +46,7 @@ pub mod town;
 
 pub use artifacts::{Artifact, ArtifactClass, ArtifactDetails, ArtifactEntry, ArtifactSlot, ArtifactSlotType};
 pub use creatures::Creature;
+pub use date::Date;
 pub use hero::{Hero, Orientation};
 pub use player::{Color, ColorRgb, Player, PlayerData};
 pub use savefile::{Error, Layout, MapSize, SaveFile};

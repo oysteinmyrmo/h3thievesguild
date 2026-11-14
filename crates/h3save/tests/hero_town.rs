@@ -4,7 +4,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -17,6 +17,7 @@ use h3save::{
 fn hero_town_day1() {
     let _guard = common::Guard::new("hero-town-day1");
     let save = open(&data_dir("hero_town").join("[hotseat] 111.GM3"));
+    test_date(&save, 1, 1, 1);
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
@@ -88,6 +89,7 @@ fn hero_town_day1() {
 fn hero_town_day2() {
     let _guard = common::Guard::new("hero-town-day2");
     let save = open(&data_dir("hero_town").join("[hotseat] 112.GM3"));
+    test_date(&save, 1, 1, 2);
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
@@ -160,6 +162,7 @@ fn hero_town_day2() {
 fn hero_town_day3() {
     let _guard = common::Guard::new("hero-town-day3");
     let save = open(&data_dir("hero_town").join("[hotseat] 113.GM3"));
+    test_date(&save, 1, 1, 3);
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
@@ -231,6 +234,7 @@ fn hero_town_day3() {
 fn hero_town_day4() {
     let _guard = common::Guard::new("hero-town-day4");
     let save = open(&data_dir("hero_town").join("[hotseat] 114.GM3"));
+    test_date(&save, 1, 1, 4);
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
