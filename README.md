@@ -8,13 +8,17 @@ saves and charts each player's progress over the game.
 
 ## Status
 
-First iteration: the save parser, ported from the homm3tools C++ code, with its full test suite.
+The save parser, ported from the homm3tools C++ code with its full test suite, and the data set
+that turns a game's saves into series for plotting.
 
 - Supports **HotA 1.8** saves only.
 - Finds the player, town and hero records by the shape of their data rather than by searching
   for hero and town names, so maps with renamed heroes and towns need no extra input.
 - Reads the in-game date (month, week and day).
 - Reads each player's resources, heroes on the map and towns.
+- Builds a data set from the saves of one game: per-day series of each player's resources, army
+  strength, heroes and towns, and each hero's level, experience and primary skills. Saves from
+  different games, or two saves from the same day, are reported as errors naming the files.
 - Creature, artifact and town name tables do not yet include the Factory and Bulwark additions.
   Unknown IDs are kept as raw values (for example `Creature(190)`); unknown creatures count as 0
   towards army strength.
@@ -25,6 +29,7 @@ First iteration: the save parser, ported from the homm3tools C++ code, with its 
 | --- | --- |
 | `crates/h3save` | The save parser library. |
 | `crates/h3save/tests` | Integration tests: one file per homm3tools C++ test file, plus tests added since. |
+| `crates/h3dataset` | Builds the per-day data set for plotting from a game's saves. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools. Each folder's `info.txt` describes what was done in game. |
 
 ## Tests
