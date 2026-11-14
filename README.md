@@ -8,13 +8,19 @@ saves and charts each player's progress over the game.
 
 ## Status
 
-First iteration: the save parser, ported from the homm3tools C++ code, with its full test suite.
+The save parser, ported from the homm3tools C++ code with its full test suite, and the data set
+that turns a game's saves into series for plotting.
 
 - Supports **HotA 1.8** saves only.
 - Finds the player, town and hero records by the shape of their data rather than by searching
   for hero and town names, so maps with renamed heroes and towns need no extra input.
 - Reads the in-game date (month, week and day).
 - Reads each player's resources, heroes on the map and towns.
+- Builds a data set from the saves of one game: per-day series of each player's resources, army
+  strength, heroes and towns, and each hero's level, experience and primary skills. Saves from
+  different games, or two saves from the same day, are reported as errors naming the files.
+  Days without a save stay on the x-axis with empty values, and come with a warning to show
+  the user before going on.
 - Creature, artifact and town name tables do not yet include the Factory and Bulwark additions.
   Unknown IDs are kept as raw values (for example `Creature(190)`); unknown creatures count as 0
   towards army strength.
@@ -25,6 +31,8 @@ First iteration: the save parser, ported from the homm3tools C++ code, with its 
 | --- | --- |
 | `crates/h3save` | The save parser library. |
 | `crates/h3save/tests` | Integration tests: one file per homm3tools C++ test file, plus tests added since. |
+| `crates/h3dataset` | Builds the per-day data set for plotting from a game's saves. |
+| `crates/h3wasm` | WebAssembly bindings for the browser, with TypeScript types for the data set. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools. Each folder's `info.txt` describes what was done in game. |
 
 ## Tests
@@ -39,6 +47,41 @@ the save's date. To see the count per test:
 
 ```sh
 cargo test -- --nocapture --test-threads=1
+```
+
+### WebAssembly
+
+The `h3wasm` tests run in WebAssembly under Node.js. They need the `wasm-bindgen` command-line
+tool at the same version as the `wasm-bindgen` crate in `Cargo.lock`:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version <version from Cargo.lock>
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
+    cargo test -p h3wasm --target wasm32-unknown-unknown
+```
+
+To build the module and its JavaScript bindings for a web page:
+
+```sh
+cargo build --release -p h3wasm --target wasm32-unknown-unknown
+wasm-bindgen --target web --out-dir pkg target/wasm32-unknown-unknown/release/h3wasm.wasm
+```
+
+In the page:
+
+```js
+import init, { DatasetBuilder } from "./pkg/h3wasm.js";
+
+await init();
+const builder = new DatasetBuilder();
+for (const file of input.files) {
+    builder.add(file.name, new Uint8Array(await file.arrayBuffer()));
+}
+const dataset = builder.finish(); // Throws a DatasetError naming the files at fault.
+if (dataset.missingDaysWarning && !confirm(dataset.missingDaysWarning)) {
+    // The user chose not to go on with days missing.
+}
 ```
 
 ### Robustness
