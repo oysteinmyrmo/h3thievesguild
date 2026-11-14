@@ -11,8 +11,10 @@ saves and charts each player's progress over the game.
 First iteration: the save parser, ported from the homm3tools C++ code, with its full test suite.
 
 - Supports **HotA 1.8** saves only.
-- Finds the town and hero records by the shape of their data rather than by searching for hero
-  and town names, so maps with renamed heroes and towns need no extra input.
+- Finds the player, town and hero records by the shape of their data rather than by searching
+  for hero and town names, so maps with renamed heroes and towns need no extra input.
+- Reads the in-game date (month, week and day).
+- Reads each player's resources, heroes on the map and towns.
 - Creature, artifact and town name tables do not yet include the Factory and Bulwark additions.
   Unknown IDs are kept as raw values (for example `Creature(190)`); unknown creatures count as 0
   towards army strength.
@@ -22,7 +24,7 @@ First iteration: the save parser, ported from the homm3tools C++ code, with its 
 | Path | What it is |
 | --- | --- |
 | `crates/h3save` | The save parser library. |
-| `crates/h3save/tests` | Integration tests, one file per homm3tools C++ test file. |
+| `crates/h3save/tests` | Integration tests: one file per homm3tools C++ test file, plus tests added since. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools. Each folder's `info.txt` describes what was done in game. |
 
 ## Tests
@@ -31,13 +33,19 @@ First iteration: the save parser, ported from the homm3tools C++ code, with its 
 cargo test
 ```
 
-The 68 integration tests are a one-to-one port of the homm3tools Catch2 tests, with the same expected
-values. Each test runs exactly as many checks as its C++ original, 16,125 in total. To see the count
-per test:
+The 68 save tests started as a one-to-one port of the homm3tools Catch2 tests, with the same expected
+values. Each runs every check of its C++ original (16,125 in total) plus checks added since, such as
+the save's date. To see the count per test:
 
 ```sh
 cargo test -- --nocapture --test-threads=1
 ```
+
+### Robustness
+
+Save files come from users, so the parser must not panic on any input. The library denies the
+Clippy lints for indexing, slicing, unwrapping and unchecked arithmetic, and
+`crates/h3save/tests/robustness.rs` feeds it truncated, damaged and random saves.
 
 ## Usage
 
@@ -45,6 +53,7 @@ cargo test -- --nocapture --test-threads=1
 use h3save::{SaveFile, player::players};
 
 let save = SaveFile::read("[hotseat] 111.GM2")?;
+println!("{}", save.date); // Month 1, Week 1, Day 1
 for player in players(&save).iter().filter(|p| p.alive()) {
     println!("{:?}: {} gold, army strength {}", player.color(), player.gold(), player.kingdom_army_strength());
 }

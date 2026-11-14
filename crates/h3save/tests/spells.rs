@@ -6,7 +6,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -76,6 +76,7 @@ fn verify_spells_from_artifacts(hero: &Hero, expected_spells: &[Spell]) {
 fn spells_day1() {
     let _guard = common::Guard::new("spells-day1");
     let save = open(&data_dir("spells").join("[hotseat] 111.GM3"));
+    test_date(&save, 1, 1, 1);
     require!(save.valid());
 
     let no_spells: [Spell; 0] = [];
@@ -199,6 +200,7 @@ fn spells_day1() {
 fn spells_day2_sanya() {
     let _guard = common::Guard::new("spells-day2-sanya");
     let save = open(&data_dir("spells").join("[hotseat] 112.GM3"));
+    test_date(&save, 1, 1, 2);
     require!(save.valid());
 
     {

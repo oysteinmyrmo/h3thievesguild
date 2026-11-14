@@ -6,7 +6,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -21,6 +21,7 @@ use h3save::player::players;
 fn resources_day1() {
     let _guard = common::Guard::new("resources-day1");
     let save = open(&data_dir("resources").join("[hotseat] 111.GM8"));
+    test_date(&save, 1, 1, 1);
     let players = players(&save);
 
     {
@@ -204,6 +205,7 @@ fn resources_day1() {
 fn resources_day2() {
     let _guard = common::Guard::new("resources-day2");
     let save = open(&data_dir("resources").join("[hotseat] 112.GM8"));
+    test_date(&save, 1, 1, 2);
     let players = players(&save);
 
     {
@@ -387,6 +389,7 @@ fn resources_day2() {
 fn resources_day3() {
     let _guard = common::Guard::new("resources-day3");
     let save = open(&data_dir("resources").join("[hotseat] 113.GM5"));
+    test_date(&save, 1, 1, 3);
     let players = players(&save);
 
     {

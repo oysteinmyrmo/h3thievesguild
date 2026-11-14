@@ -1,8 +1,9 @@
 //! Shared helpers for the integration tests.
 //!
-//! The tests are a one-to-one port of the homm3tools C++ tests. `require!` and
-//! `require_eq!` stand in for Catch2's `REQUIRE` and count every check, so the
-//! number of checks run can be compared with the C++ suite (16,125).
+//! The tests started as a one-to-one port of the homm3tools C++ tests. `require!` and
+//! `require_eq!` stand in for Catch2's `REQUIRE` and count every check, so the number of
+//! checks run can be compared with the C++ suite (16,125). Checks added since, such as
+//! [`test_date`], come on top of that.
 
 #![allow(dead_code)]
 
@@ -118,4 +119,11 @@ impl Army for Town {
 pub fn test_creature(item: &impl Army, idx: usize, creature: Creature, count: u32) {
     require_eq!(item.creatures()[idx], creature);
     require_eq!(item.creature_count()[idx], count);
+}
+
+/// Check the in-game date of a save: three checks.
+pub fn test_date(save: &SaveFile, month: u16, week: u16, day: u16) {
+    require_eq!(save.date.month(), month);
+    require_eq!(save.date.week(), week);
+    require_eq!(save.date.day(), day);
 }

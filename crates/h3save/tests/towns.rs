@@ -4,7 +4,7 @@
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature};
+use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -49,6 +49,7 @@ fn test_town_constants(towns: &[Town]) {
 fn towns_day1() {
     let _guard = common::Guard::new("towns-day1");
     let save = open(&data_dir("towns").join("[hotseat] 111.GM2"));
+    test_date(&save, 1, 1, 1);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -100,6 +101,7 @@ fn towns_day1() {
 fn towns_day2() {
     let _guard = common::Guard::new("towns-day2");
     let save = open(&data_dir("towns").join("[hotseat] 112.GM2"));
+    test_date(&save, 1, 1, 2);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -163,6 +165,7 @@ fn towns_day2() {
 fn towns_day3() {
     let _guard = common::Guard::new("towns-day3");
     let save = open(&data_dir("towns").join("[hotseat] 113.GM2"));
+    test_date(&save, 1, 1, 3);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -243,6 +246,7 @@ fn towns_day3() {
 fn towns_day4() {
     let _guard = common::Guard::new("towns-day4");
     let save = open(&data_dir("towns").join("[hotseat] 114.GM2"));
+    test_date(&save, 1, 1, 4);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -321,6 +325,7 @@ fn towns_day4() {
 fn towns_day5() {
     let _guard = common::Guard::new("towns-day5");
     let save = open(&data_dir("towns").join("[hotseat] 115.GM2"));
+    test_date(&save, 1, 1, 5);
     require!(save.valid());
     test_town_constants(&save.towns);
 
