@@ -18,7 +18,7 @@ use h3save::{
 #[test]
 fn hero_movement_start() {
     let _guard = common::Guard::new("hero-movement-start");
-    let save = open(data_dir("movement").join("start.GM2"));
+    let save = open(&data_dir("movement").join("start.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];
@@ -41,7 +41,7 @@ fn hero_movement_start() {
 #[test]
 fn hero_movement_day1() {
     let _guard = common::Guard::new("hero-movement-day1");
-    let save = open(data_dir("movement").join("[hotseat] 111.GM2"));
+    let save = open(&data_dir("movement").join("[hotseat] 111.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];
@@ -64,7 +64,7 @@ fn hero_movement_day1() {
 #[test]
 fn hero_movement_day2() {
     let _guard = common::Guard::new("hero-movement-day2");
-    let save = open(data_dir("movement").join("[hotseat] 112.GM2"));
+    let save = open(&data_dir("movement").join("[hotseat] 112.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];
@@ -93,7 +93,7 @@ fn hero_movement_day2() {
 #[test]
 fn hero_movement_day3() {
     let _guard = common::Guard::new("hero-movement-day3");
-    let save = open(data_dir("movement").join("[hotseat] 113.GM2"));
+    let save = open(&data_dir("movement").join("[hotseat] 113.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];
@@ -122,7 +122,7 @@ fn hero_movement_day3() {
 #[test]
 fn hero_movement_day4() {
     let _guard = common::Guard::new("hero-movement-day4");
-    let save = open(data_dir("movement").join("[hotseat] 114.GM2"));
+    let save = open(&data_dir("movement").join("[hotseat] 114.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];
@@ -151,7 +151,7 @@ fn hero_movement_day4() {
 #[test]
 fn hero_movement_day5() {
     let _guard = common::Guard::new("hero-movement-day5");
-    let save = open(data_dir("movement").join("[hotseat] 115.GM2"));
+    let save = open(&data_dir("movement").join("[hotseat] 115.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];
@@ -180,7 +180,7 @@ fn hero_movement_day5() {
 #[test]
 fn hero_movement_day6() {
     let _guard = common::Guard::new("hero-movement-day6");
-    let save = open(data_dir("movement").join("[hotseat] 116.GM2"));
+    let save = open(&data_dir("movement").join("[hotseat] 116.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];
@@ -209,7 +209,7 @@ fn hero_movement_day6() {
 #[test]
 fn hero_movement_day7() {
     let _guard = common::Guard::new("hero-movement-day7");
-    let save = open(data_dir("movement").join("[hotseat] 117.GM2"));
+    let save = open(&data_dir("movement").join("[hotseat] 117.GM2"));
     require!(save.valid());
 
     let orrin = &save.heroes[0];

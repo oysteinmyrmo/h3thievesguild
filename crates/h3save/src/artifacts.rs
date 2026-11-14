@@ -312,18 +312,23 @@ pub struct ArtifactDetails {
 }
 
 impl ArtifactDetails {
+    #[must_use]
     pub fn is_treasure(&self) -> bool {
         self.class == ArtifactClass::Treasure
     }
+    #[must_use]
     pub fn is_minor(&self) -> bool {
         self.class == ArtifactClass::Minor
     }
+    #[must_use]
     pub fn is_major(&self) -> bool {
         self.class == ArtifactClass::Major
     }
+    #[must_use]
     pub fn is_relic(&self) -> bool {
         self.class == ArtifactClass::Relic
     }
+    #[must_use]
     pub fn is_combo(&self) -> bool {
         self.class == ArtifactClass::Combination
     }
@@ -331,6 +336,12 @@ impl ArtifactDetails {
 
 impl Artifact {
     /// Class, slot type and cost, from <https://heroes.thelazy.net/index.php/List_of_artifacts_(HotA)>.
+    #[must_use]
+    #[expect(
+        clippy::match_same_arms,
+        clippy::too_many_lines,
+        reason = "a data table: one row per artifact, kept in source order rather than merged by value"
+    )]
     pub fn details(self) -> Option<ArtifactDetails> {
         use ArtifactClass as C;
         use ArtifactSlotType as S;
@@ -523,6 +534,7 @@ impl Default for ArtifactEntry {
 }
 
 impl ArtifactEntry {
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.artifact == Artifact::NONE
     }

@@ -16,7 +16,7 @@ use h3save::{
 #[test]
 fn prison_day1() {
     let _guard = common::Guard::new("prison-day1");
-    let save = open(data_dir("prison").join("[hotseat] 111.GM2"));
+    let save = open(&data_dir("prison").join("[hotseat] 111.GM2"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Spint");
@@ -50,7 +50,7 @@ fn prison_day1() {
 #[test]
 fn prison_day2() {
     let _guard = common::Guard::new("prison-day2");
-    let save = open(data_dir("prison").join("[hotseat] 112.GM2"));
+    let save = open(&data_dir("prison").join("[hotseat] 112.GM2"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Spint");

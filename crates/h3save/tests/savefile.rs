@@ -19,10 +19,10 @@ use h3save::player::players;
 #[test]
 fn savefile_s() {
     let _guard = common::Guard::new("savefile-S");
-    let save = open_with_towns(data_dir("savefile").join("S").join("[hotseat] 111.GM2"), "RedsTown", 2);
+    let save = open_with_towns(&data_dir("savefile").join("S").join("[hotseat] 111.GM2"), "RedsTown", 2);
 
     require!(save.valid());
-    require_eq!(save.hero_count, HERO_COUNT as u32);
+    require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);
     require_eq!(save.map_size, MapSize::S);
     require_eq!(save.has_underground, 0);
     require_eq!(save.map_name_size, 20);
@@ -86,13 +86,13 @@ fn savefile_s() {
 fn savefile_s_u() {
     let _guard = common::Guard::new("savefile-S_U");
     let save = open_with_towns(
-        data_dir("savefile").join("S_U").join("[hotseat] 111.GM2"),
+        &data_dir("savefile").join("S_U").join("[hotseat] 111.GM2"),
         "RedsTown",
         4,
     );
 
     require!(save.valid());
-    require_eq!(save.hero_count, HERO_COUNT as u32);
+    require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);
     require_eq!(save.map_size, MapSize::S);
     require_eq!(save.has_underground, 1);
     require_eq!(save.map_name_size, 22);
@@ -179,10 +179,10 @@ fn savefile_s_u() {
 #[test]
 fn savefile_m() {
     let _guard = common::Guard::new("savefile-M");
-    let save = open_with_towns(data_dir("savefile").join("M").join("[hotseat] 111.GM2"), "RedsTown", 2);
+    let save = open_with_towns(&data_dir("savefile").join("M").join("[hotseat] 111.GM2"), "RedsTown", 2);
 
     require!(save.valid());
-    require_eq!(save.hero_count, HERO_COUNT as u32);
+    require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);
     require_eq!(save.map_size, MapSize::M);
     require_eq!(save.has_underground, 0);
     require_eq!(save.map_name_size, 20);
@@ -246,13 +246,13 @@ fn savefile_m() {
 fn savefile_m_u() {
     let _guard = common::Guard::new("savefile-M_U");
     let save = open_with_towns(
-        data_dir("savefile").join("M_U").join("[hotseat] 111.GM2"),
+        &data_dir("savefile").join("M_U").join("[hotseat] 111.GM2"),
         "RedsTown",
         4,
     );
 
     require!(save.valid());
-    require_eq!(save.hero_count, HERO_COUNT as u32);
+    require_eq!(usize::try_from(save.hero_count).unwrap(), HERO_COUNT);
     require_eq!(save.map_size, MapSize::M);
     require_eq!(save.has_underground, 1);
     require_eq!(save.map_name_size, 22);

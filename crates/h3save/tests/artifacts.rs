@@ -1,5 +1,7 @@
 // Ported from the homm3tools C++ test test-artifacts.cpp. Expected values are unchanged.
 
+#![expect(clippy::too_many_lines, reason = "one-to-one ports of long C++ test cases")]
+
 #[macro_use]
 mod common;
 
@@ -50,7 +52,7 @@ fn verify_catapult_and_spell_book(hero: &Hero) {
 #[test]
 fn artifacts_day1() {
     let _guard = common::Guard::new("artifacts-day1");
-    let save = open(data_dir("artifacts").join("[hotseat] 111.GM8"));
+    let save = open(&data_dir("artifacts").join("[hotseat] 111.GM8"));
     require!(save.valid());
 
     {
@@ -230,7 +232,7 @@ fn artifacts_day1() {
 #[test]
 fn artifacts_day2() {
     let _guard = common::Guard::new("artifacts-day2");
-    let save = open(data_dir("artifacts").join("[hotseat] 112.GM8"));
+    let save = open(&data_dir("artifacts").join("[hotseat] 112.GM8"));
     require!(save.valid());
 
     {
@@ -1072,7 +1074,7 @@ fn artifacts_day2() {
 #[test]
 fn artifacts_day3() {
     let _guard = common::Guard::new("artifacts-day3");
-    let save = open(data_dir("artifacts").join("[hotseat] 113.GM8"));
+    let save = open(&data_dir("artifacts").join("[hotseat] 113.GM8"));
     require!(save.valid());
 
     {
@@ -1964,7 +1966,7 @@ fn artifacts_day3() {
 #[test]
 fn artifacts_day4() {
     let _guard = common::Guard::new("artifacts-day4");
-    let save = open(data_dir("artifacts").join("[hotseat] 114.GM8"));
+    let save = open(&data_dir("artifacts").join("[hotseat] 114.GM8"));
     require!(save.valid());
 
     {

@@ -16,7 +16,7 @@ use h3save::{
 #[test]
 fn primary_skills_day1() {
     let _guard = common::Guard::new("primary-skills-day1");
-    let save = open(data_dir("primary_skills").join("[hotseat] 111.GM2"));
+    let save = open(&data_dir("primary_skills").join("[hotseat] 111.GM2"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Clavius");
@@ -63,7 +63,7 @@ fn primary_skills_day1() {
 #[test]
 fn primary_skills_day2() {
     let _guard = common::Guard::new("primary-skills-day2");
-    let save = open(data_dir("primary_skills").join("[hotseat] 112.GM2"));
+    let save = open(&data_dir("primary_skills").join("[hotseat] 112.GM2"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Clavius");

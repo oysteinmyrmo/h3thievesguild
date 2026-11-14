@@ -1,5 +1,7 @@
 // Ported from the homm3tools C++ test test-creatures.cpp. Expected values are unchanged.
 
+#![expect(clippy::too_many_lines, reason = "one-to-one ports of long C++ test cases")]
+
 #[macro_use]
 mod common;
 
@@ -16,7 +18,7 @@ use h3save::{
 #[test]
 fn creatures_day1() {
     let _guard = common::Guard::new("creatures-day1");
-    let save = open(data_dir("creatures").join("[hotseat] 111.GM8"));
+    let save = open(&data_dir("creatures").join("[hotseat] 111.GM8"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Lord Haart");
@@ -247,8 +249,8 @@ fn creatures_day1() {
     test_creature(hero, 4, Creature::EMPTY, 0);
     test_creature(hero, 5, Creature::EMPTY, 0);
     test_creature(hero, 6, Creature::EMPTY, 0);
-    require_eq!(stats::hero_ai_value(hero), 742868);
-    require_eq!(stats::hero_army_strength(hero), 779126);
+    require_eq!(stats::hero_ai_value(hero), 742_868);
+    require_eq!(stats::hero_army_strength(hero), 779_126);
 
     let hero = find_hero(&save, "Corkes");
     test_creature(hero, 0, Creature::HALFLING, 1);
@@ -280,14 +282,14 @@ fn creatures_day1() {
     test_creature(hero, 4, Creature::RUST_DRAGON, 5);
     test_creature(hero, 5, Creature::EMPTY, 0);
     test_creature(hero, 6, Creature::EMPTY, 0);
-    require_eq!(stats::hero_ai_value(hero), 531083);
-    require_eq!(stats::hero_army_strength(hero), 557004);
+    require_eq!(stats::hero_ai_value(hero), 531_083);
+    require_eq!(stats::hero_army_strength(hero), 557_004);
 }
 
 #[test]
 fn creatures_day2() {
     let _guard = common::Guard::new("creatures-day2");
-    let save = open(data_dir("creatures").join("[hotseat] 112.GM8"));
+    let save = open(&data_dir("creatures").join("[hotseat] 112.GM8"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Lord Haart");
@@ -518,8 +520,8 @@ fn creatures_day2() {
     test_creature(hero, 4, Creature::EMPTY, 0);
     test_creature(hero, 5, Creature::EMPTY, 0);
     test_creature(hero, 6, Creature::EMPTY, 0);
-    require_eq!(stats::hero_ai_value(hero), 742868);
-    require_eq!(stats::hero_army_strength(hero), 779126);
+    require_eq!(stats::hero_ai_value(hero), 742_868);
+    require_eq!(stats::hero_army_strength(hero), 779_126);
 
     let hero = find_hero(&save, "Corkes");
     test_creature(hero, 0, Creature::NOMAD, 7);
@@ -551,6 +553,6 @@ fn creatures_day2() {
     test_creature(hero, 4, Creature::ENCHANTER, 1);
     test_creature(hero, 5, Creature::EMPTY, 0);
     test_creature(hero, 6, Creature::EMPTY, 0);
-    require_eq!(stats::hero_ai_value(hero), 531083);
-    require_eq!(stats::hero_army_strength(hero), 557004);
+    require_eq!(stats::hero_ai_value(hero), 531_083);
+    require_eq!(stats::hero_army_strength(hero), 557_004);
 }

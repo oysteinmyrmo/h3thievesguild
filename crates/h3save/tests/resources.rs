@@ -1,5 +1,7 @@
 // Ported from the homm3tools C++ test test-resources.cpp. Expected values are unchanged.
 
+#![expect(clippy::too_many_lines, reason = "one-to-one ports of long C++ test cases")]
+
 #[macro_use]
 mod common;
 
@@ -18,7 +20,7 @@ use h3save::player::players;
 #[test]
 fn resources_day1() {
     let _guard = common::Guard::new("resources-day1");
-    let save = open(data_dir("resources").join("[hotseat] 111.GM8"));
+    let save = open(&data_dir("resources").join("[hotseat] 111.GM8"));
     let players = players(&save);
 
     {
@@ -201,7 +203,7 @@ fn resources_day1() {
 #[test]
 fn resources_day2() {
     let _guard = common::Guard::new("resources-day2");
-    let save = open(data_dir("resources").join("[hotseat] 112.GM8"));
+    let save = open(&data_dir("resources").join("[hotseat] 112.GM8"));
     let players = players(&save);
 
     {
@@ -384,7 +386,7 @@ fn resources_day2() {
 #[test]
 fn resources_day3() {
     let _guard = common::Guard::new("resources-day3");
-    let save = open(data_dir("resources").join("[hotseat] 113.GM5"));
+    let save = open(&data_dir("resources").join("[hotseat] 113.GM5"));
     let players = players(&save);
 
     {

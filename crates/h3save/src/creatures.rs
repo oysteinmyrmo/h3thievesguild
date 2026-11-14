@@ -175,6 +175,12 @@ pub const MAX_STACKS: usize = 7;
 impl Creature {
     /// AI value, from <https://heroes.thelazy.net/index.php/List_of_creatures_(HotA)>.
     /// The empty slot has value 0. Unknown creatures return `None`.
+    #[must_use]
+    #[expect(
+        clippy::match_same_arms,
+        clippy::too_many_lines,
+        reason = "a data table: one row per creature, kept in source order rather than merged by value"
+    )]
     pub fn ai_value(self) -> Option<u32> {
         let value = match self {
             Creature::PIKEMAN => 80,

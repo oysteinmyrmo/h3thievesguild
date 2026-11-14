@@ -48,7 +48,7 @@ fn test_town_constants(towns: &[Town]) {
 #[test]
 fn towns_day1() {
     let _guard = common::Guard::new("towns-day1");
-    let save = open_with_towns(data_dir("towns").join("[hotseat] 111.GM2"), "RedsTown", 4);
+    let save = open_with_towns(&data_dir("towns").join("[hotseat] 111.GM2"), "RedsTown", 4);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -99,7 +99,7 @@ fn towns_day1() {
 #[test]
 fn towns_day2() {
     let _guard = common::Guard::new("towns-day2");
-    let save = open_with_towns(data_dir("towns").join("[hotseat] 112.GM2"), "RedsTown", 4);
+    let save = open_with_towns(&data_dir("towns").join("[hotseat] 112.GM2"), "RedsTown", 4);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -162,7 +162,7 @@ fn towns_day2() {
 #[test]
 fn towns_day3() {
     let _guard = common::Guard::new("towns-day3");
-    let save = open_with_towns(data_dir("towns").join("[hotseat] 113.GM2"), "RedsTown", 4);
+    let save = open_with_towns(&data_dir("towns").join("[hotseat] 113.GM2"), "RedsTown", 4);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -242,7 +242,7 @@ fn towns_day3() {
 #[test]
 fn towns_day4() {
     let _guard = common::Guard::new("towns-day4");
-    let save = open_with_towns(data_dir("towns").join("[hotseat] 114.GM2"), "RedsTown", 4);
+    let save = open_with_towns(&data_dir("towns").join("[hotseat] 114.GM2"), "RedsTown", 4);
     require!(save.valid());
     test_town_constants(&save.towns);
 
@@ -320,7 +320,7 @@ fn towns_day4() {
 #[test]
 fn towns_day5() {
     let _guard = common::Guard::new("towns-day5");
-    let save = open_with_towns(data_dir("towns").join("[hotseat] 115.GM2"), "RedsTown", 4);
+    let save = open_with_towns(&data_dir("towns").join("[hotseat] 115.GM2"), "RedsTown", 4);
     require!(save.valid());
     test_town_constants(&save.towns);
 

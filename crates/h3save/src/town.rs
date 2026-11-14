@@ -112,16 +112,19 @@ impl Town {
     }
 
     /// Size of this town's record in the save file.
+    #[must_use]
     pub fn record_size(&self) -> usize {
         TOWN_SIZE_WITHOUT_NAME + usize::from(self.name_size)
     }
 
     /// AI value of the garrison.
+    #[must_use]
     pub fn army_strength(&self) -> u64 {
         stats::army_ai_value(&self.creatures, &self.creature_count)
     }
 
     /// The garrison creature with the highest AI value, or `Creature::EMPTY`.
+    #[must_use]
     pub fn best_creature(&self) -> Creature {
         stats::best_creature(&self.creatures)
     }

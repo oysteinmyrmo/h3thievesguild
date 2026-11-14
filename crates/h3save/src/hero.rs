@@ -206,153 +206,189 @@ impl Hero {
     }
 
     /// The hero's name, up to the first null byte.
+    #[must_use]
     pub fn name(&self) -> String {
         let end = self.name.iter().position(|&b| b == 0).unwrap_or(self.name.len());
         latin1(&self.name[..end])
     }
 
     /// In a town garrison: owned, but not on the map.
+    #[must_use]
     pub fn garrison(&self) -> bool {
         self.on_map == 0 && usize::from(self.player) < crate::player::MAX_PLAYERS
     }
 
     /// In a prison: not on the map and not owned.
+    #[must_use]
     pub fn prison(&self) -> bool {
         self.on_map == 0 && self.player == 0xFF
     }
 
+    #[must_use]
     pub fn attack_in_game(&self) -> u8 {
         self.attack.min(MAX_PRIMARY_SKILL_VALUE)
     }
 
+    #[must_use]
     pub fn defense_in_game(&self) -> u8 {
         self.defense.min(MAX_PRIMARY_SKILL_VALUE)
     }
 
+    #[must_use]
     pub fn power_in_game(&self) -> u8 {
         self.power.min(MAX_PRIMARY_SKILL_VALUE)
     }
 
+    #[must_use]
     pub fn knowledge_in_game(&self) -> u8 {
         self.knowledge.min(MAX_PRIMARY_SKILL_VALUE)
     }
 
     /// Whether the spell is available, from the spell book or an artifact.
+    #[must_use]
     pub fn has_spell(&self, spell: Spell) -> bool {
         self.spells.get(usize::from(spell.0)).is_some_and(|&v| v != 0)
     }
 
     /// Whether the spell is written in the spell book.
+    #[must_use]
     pub fn has_spell_in_spellbook(&self, spell: Spell) -> bool {
         self.spellbook.get(usize::from(spell.0)).is_some_and(|&v| v != 0)
     }
 
     /// The hero's secondary skills in slot order. Empty slots are default.
+    #[must_use]
     pub fn skills(&self) -> SkillSlots {
         let mut skills = [SkillSlot::default(); SKILL_SLOT_COUNT];
-        for (i, &level) in self.skill_levels.iter().enumerate() {
+        let levels_and_slots = self.skill_levels.iter().zip(&self.skill_slots);
+        // Skill IDs are the array index; `0u8..` counts them without a cast.
+        for (id, (&level, &slot)) in (0u8..).zip(levels_and_slots) {
             if level == SkillLevel::NONE {
                 continue;
             }
-            let slot = usize::from(self.skill_slots[i]);
+            let slot = usize::from(slot);
             debug_assert!((1..=SKILL_SLOT_COUNT).contains(&slot), "skill slot {slot} out of range");
             if let Some(entry) = slot.checked_sub(1).and_then(|s| skills.get_mut(s)) {
-                // `i` is below SKILL_COUNT (30), so it fits in a u8.
-                *entry = SkillSlot::new(Skill(i as u8), level);
+                *entry = SkillSlot::new(Skill(id), level);
             }
         }
         skills
     }
 
     /// Army strength: AI value of the army, scaled by attack and defense when the hero is on the map.
+    #[must_use]
     pub fn army_strength(&self) -> u64 {
         stats::hero_army_strength(self)
     }
 
     /// The creature with the highest AI value, or `Creature::EMPTY` for an empty army.
+    #[must_use]
     pub fn best_creature(&self) -> Creature {
         stats::best_creature(&self.creatures)
     }
 
     /// The artifact in a slot, or `Artifact::NONE`.
+    #[must_use]
     pub fn artifact(&self, slot: ArtifactSlot) -> Artifact {
         self.artifact_at(usize::from(slot.0))
     }
 
     /// The artifact at a slot index, or `Artifact::NONE` for an empty or out-of-range slot.
+    #[must_use]
     pub fn artifact_at(&self, index: usize) -> Artifact {
         self.artifacts.get(index).map_or(Artifact::NONE, |e| e.artifact)
     }
 
     /// The spell on a spell scroll in a slot.
+    #[must_use]
     pub fn spell_from_scroll(&self, slot: ArtifactSlot) -> Spell {
         let id = self
             .artifacts
             .get(usize::from(slot.0))
             .map_or(u32::MAX, |e| e.scroll_spell_id);
-        // Spell IDs fit in a u8; the C++ code truncates the same way.
-        Spell(id as u8)
+        // Spell IDs fit in a u8. An empty slot (u32::MAX) gives 255, as the C++ truncation does.
+        Spell(u8::try_from(id).unwrap_or(u8::MAX))
     }
 
+    #[must_use]
     pub fn helm(&self) -> Artifact {
         self.artifact(ArtifactSlot::HELM)
     }
+    #[must_use]
     pub fn cloak(&self) -> Artifact {
         self.artifact(ArtifactSlot::CLOAK)
     }
+    #[must_use]
     pub fn neck(&self) -> Artifact {
         self.artifact(ArtifactSlot::NECK)
     }
+    #[must_use]
     pub fn weapon(&self) -> Artifact {
         self.artifact(ArtifactSlot::WEAPON)
     }
+    #[must_use]
     pub fn shield(&self) -> Artifact {
         self.artifact(ArtifactSlot::SHIELD)
     }
+    #[must_use]
     pub fn armor(&self) -> Artifact {
         self.artifact(ArtifactSlot::ARMOR)
     }
+    #[must_use]
     pub fn ring_left(&self) -> Artifact {
         self.artifact(ArtifactSlot::RING_LEFT)
     }
+    #[must_use]
     pub fn ring_right(&self) -> Artifact {
         self.artifact(ArtifactSlot::RING_RIGHT)
     }
+    #[must_use]
     pub fn boots(&self) -> Artifact {
         self.artifact(ArtifactSlot::BOOTS)
     }
+    #[must_use]
     pub fn misc01(&self) -> Artifact {
         self.artifact(ArtifactSlot::MISC01)
     }
+    #[must_use]
     pub fn misc02(&self) -> Artifact {
         self.artifact(ArtifactSlot::MISC02)
     }
+    #[must_use]
     pub fn misc03(&self) -> Artifact {
         self.artifact(ArtifactSlot::MISC03)
     }
+    #[must_use]
     pub fn misc04(&self) -> Artifact {
         self.artifact(ArtifactSlot::MISC04)
     }
+    #[must_use]
     pub fn misc05(&self) -> Artifact {
         self.artifact(ArtifactSlot::MISC05)
     }
+    #[must_use]
     pub fn ballista(&self) -> Artifact {
         self.artifact(ArtifactSlot::BALLISTA)
     }
+    #[must_use]
     pub fn ammo_cart(&self) -> Artifact {
         self.artifact(ArtifactSlot::AMMO_CART)
     }
+    #[must_use]
     pub fn first_aid_tent(&self) -> Artifact {
         self.artifact(ArtifactSlot::FIRST_AID_TENT)
     }
+    #[must_use]
     pub fn catapult(&self) -> Artifact {
         self.artifact(ArtifactSlot::CATAPULT)
     }
+    #[must_use]
     pub fn spell_book(&self) -> Artifact {
         self.artifact(ArtifactSlot::SPELL_BOOK)
     }
 
     /// The artifact at an index in the artifact list. Index 19 is the first backpack slot.
+    #[must_use]
     pub fn inventory(&self, index: usize) -> Artifact {
         self.artifact_at(index)
     }

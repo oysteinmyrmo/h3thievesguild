@@ -36,15 +36,18 @@ impl Color {
         Color::Pink,
     ];
 
+    #[must_use]
     pub fn index(self) -> usize {
         self as usize
     }
 
+    #[must_use]
     pub fn name(self) -> &'static str {
         ["Red", "Blue", "Tan", "Green", "Orange", "Purple", "Teal", "Pink"][self.index()]
     }
 
     /// The colour used in game.
+    #[must_use]
     pub fn rgb(self) -> ColorRgb {
         PLAYER_COLORS[self.index()]
     }
@@ -119,23 +122,28 @@ pub struct Player {
 }
 
 impl Player {
+    #[must_use]
     pub fn color(&self) -> Color {
         self.color
     }
 
+    #[must_use]
     pub fn data(&self) -> &PlayerData {
         &self.data
     }
 
+    #[must_use]
     pub fn heroes(&self) -> &[Hero] {
         &self.heroes
     }
 
+    #[must_use]
     pub fn towns(&self) -> &[Town] {
         &self.towns
     }
 
     /// A player is alive while it owns a hero or a town.
+    #[must_use]
     pub fn alive(&self) -> bool {
         !self.heroes.is_empty() || !self.towns.is_empty()
     }
@@ -157,30 +165,38 @@ impl Player {
             .unwrap_or(0)
     }
 
+    #[must_use]
     pub fn wood(&self) -> u32 {
         self.data.wood
     }
+    #[must_use]
     pub fn mercury(&self) -> u32 {
         self.data.mercury
     }
+    #[must_use]
     pub fn ore(&self) -> u32 {
         self.data.ore
     }
+    #[must_use]
     pub fn sulfur(&self) -> u32 {
         self.data.sulfur
     }
+    #[must_use]
     pub fn crystal(&self) -> u32 {
         self.data.crystal
     }
+    #[must_use]
     pub fn gems(&self) -> u32 {
         self.data.gems
     }
+    #[must_use]
     pub fn gold(&self) -> u32 {
         self.data.gold
     }
 }
 
 /// All eight players of a save, with their heroes and towns, indexed by colour.
+#[must_use]
 pub fn players(save: &SaveFile) -> [Player; MAX_PLAYERS] {
     let mut players = Color::ALL.map(|color| Player {
         color,

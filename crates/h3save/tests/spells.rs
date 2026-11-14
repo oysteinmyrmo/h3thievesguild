@@ -1,5 +1,7 @@
 // Ported from the homm3tools C++ test test-spells.cpp. Expected values are unchanged.
 
+#![expect(clippy::too_many_lines, reason = "one-to-one ports of long C++ test cases")]
+
 #[macro_use]
 mod common;
 
@@ -22,7 +24,7 @@ fn contains(spells: &[Spell], arg: Spell) -> bool {
 /// Verify spells in spell book (not artifacts).
 fn verify_spell_book(hero: &Hero, expected_spells: &[Spell]) {
     for i in 0..SPELL_COUNT {
-        let spell = Spell(i as u8);
+        let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spellbook[i] != 0;
         let expected = contains(expected_spells, spell);
         require_eq!(expected, exists);
@@ -33,7 +35,7 @@ fn verify_spell_book(hero: &Hero, expected_spells: &[Spell]) {
 /// Verify all spells, both in spell book and from artifacts.
 fn verify_spells(hero: &Hero, expected_spells: &[Spell]) {
     for i in 0..SPELL_COUNT {
-        let spell = Spell(i as u8);
+        let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spells[i] != 0;
         let expected = contains(expected_spells, spell);
         require_eq!(expected, exists);
@@ -45,7 +47,7 @@ fn verify_spells(hero: &Hero, expected_spells: &[Spell]) {
 /// speciality spell, which is added to the spell book by default (e.g. Curse for Ingham).
 fn verify_spells_from_artifacts_with_speciality(hero: &Hero, expected_spells: &[Spell], speciality: Spell) {
     for i in 0..SPELL_COUNT {
-        let spell = Spell(i as u8);
+        let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spells[i] != 0;
         let expected = contains(expected_spells, spell);
         require_eq!(expected, exists);
@@ -60,7 +62,7 @@ fn verify_spells_from_artifacts_with_speciality(hero: &Hero, expected_spells: &[
 /// Verify spells from artifacts. Expects spells that are not in the spell book.
 fn verify_spells_from_artifacts(hero: &Hero, expected_spells: &[Spell]) {
     for i in 0..SPELL_COUNT {
-        let spell = Spell(i as u8);
+        let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spells[i] != 0;
         let expected = contains(expected_spells, spell);
         require_eq!(expected, exists);
@@ -73,7 +75,7 @@ fn verify_spells_from_artifacts(hero: &Hero, expected_spells: &[Spell]) {
 #[test]
 fn spells_day1() {
     let _guard = common::Guard::new("spells-day1");
-    let save = open(data_dir("spells").join("[hotseat] 111.GM3"));
+    let save = open(&data_dir("spells").join("[hotseat] 111.GM3"));
     require!(save.valid());
 
     let no_spells: [Spell; 0] = [];
@@ -196,7 +198,7 @@ fn spells_day1() {
 #[test]
 fn spells_day2_sanya() {
     let _guard = common::Guard::new("spells-day2-sanya");
-    let save = open(data_dir("spells").join("[hotseat] 112.GM3"));
+    let save = open(&data_dir("spells").join("[hotseat] 112.GM3"));
     require!(save.valid());
 
     {

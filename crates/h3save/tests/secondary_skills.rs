@@ -15,7 +15,7 @@ use h3save::{
 
 use h3save::skills::SKILL_SLOT_COUNT;
 
-/// Slots not given are expected to be empty, as with a partly initialised std::array in C++.
+/// Slots not given are expected to be empty, as with a partly initialised `std::array` in C++.
 fn test_skills(hero: &Hero, required: &[SkillSlot]) {
     let skills = hero.skills();
     let mut expected = [SkillSlot::default(); SKILL_SLOT_COUNT];
@@ -28,7 +28,7 @@ fn test_skills(hero: &Hero, required: &[SkillSlot]) {
 #[test]
 fn secondary_skills_day1() {
     let _guard = common::Guard::new("secondary-skills-day1");
-    let save = open(data_dir("secondary_skills").join("[hotseat] 111.GM5"));
+    let save = open(&data_dir("secondary_skills").join("[hotseat] 111.GM5"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Edric");
@@ -89,7 +89,7 @@ fn secondary_skills_day1() {
 #[test]
 fn secondary_skills_day2() {
     let _guard = common::Guard::new("secondary-skills-day2");
-    let save = open(data_dir("secondary_skills").join("[hotseat] 112.GM5"));
+    let save = open(&data_dir("secondary_skills").join("[hotseat] 112.GM5"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Edric");
@@ -165,7 +165,7 @@ fn secondary_skills_day2() {
 #[test]
 fn secondary_skills_day3() {
     let _guard = common::Guard::new("secondary-skills-day3");
-    let save = open(data_dir("secondary_skills").join("[hotseat] 113.GM5"));
+    let save = open(&data_dir("secondary_skills").join("[hotseat] 113.GM5"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Edric");

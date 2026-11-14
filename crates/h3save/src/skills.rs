@@ -72,10 +72,12 @@ impl Default for SkillSlot {
 }
 
 impl SkillSlot {
+    #[must_use]
     pub fn new(skill: Skill, level: SkillLevel) -> Self {
         SkillSlot { skill, level }
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.level == SkillLevel::NONE || self.skill == Skill::NONE
     }

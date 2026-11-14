@@ -16,7 +16,7 @@ use h3save::{
 #[test]
 fn hero_town_day1() {
     let _guard = common::Guard::new("hero-town-day1");
-    let save = open(data_dir("hero_town").join("[hotseat] 111.GM3"));
+    let save = open(&data_dir("hero_town").join("[hotseat] 111.GM3"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
@@ -87,7 +87,7 @@ fn hero_town_day1() {
 #[test]
 fn hero_town_day2() {
     let _guard = common::Guard::new("hero-town-day2");
-    let save = open(data_dir("hero_town").join("[hotseat] 112.GM3"));
+    let save = open(&data_dir("hero_town").join("[hotseat] 112.GM3"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
@@ -159,7 +159,7 @@ fn hero_town_day2() {
 #[test]
 fn hero_town_day3() {
     let _guard = common::Guard::new("hero-town-day3");
-    let save = open(data_dir("hero_town").join("[hotseat] 113.GM3"));
+    let save = open(&data_dir("hero_town").join("[hotseat] 113.GM3"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
@@ -230,7 +230,7 @@ fn hero_town_day3() {
 #[test]
 fn hero_town_day4() {
     let _guard = common::Guard::new("hero-town-day4");
-    let save = open(data_dir("hero_town").join("[hotseat] 114.GM3"));
+    let save = open(&data_dir("hero_town").join("[hotseat] 114.GM3"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");

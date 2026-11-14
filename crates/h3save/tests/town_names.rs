@@ -25,7 +25,7 @@ fn town_exists(save: &SaveFile, town_name: &str) -> bool {
 #[test]
 fn towns_names_castle_rampart_tower() {
     let _guard = common::Guard::new("towns-names-castle-rampart-tower");
-    let save = open(data_dir("town_names").join("01").join("[hotseat] 111.GM3"));
+    let save = open(&data_dir("town_names").join("01").join("[hotseat] 111.GM3"));
     require!(save.valid());
 
     // Castle
@@ -48,7 +48,7 @@ fn towns_names_castle_rampart_tower() {
 #[test]
 fn towns_names_inferno_necro_dungeon() {
     let _guard = common::Guard::new("towns-names-inferno-necro-dungeon");
-    let save = open(data_dir("town_names").join("02").join("[hotseat] 111.GM3"));
+    let save = open(&data_dir("town_names").join("02").join("[hotseat] 111.GM3"));
     require!(save.valid());
 
     // Inferno
@@ -71,7 +71,7 @@ fn towns_names_inferno_necro_dungeon() {
 #[test]
 fn towns_names_stronghold_fortress() {
     let _guard = common::Guard::new("towns-names-stronghold-fortress");
-    let save = open(data_dir("town_names").join("03").join("[hotseat] 111.GM2"));
+    let save = open(&data_dir("town_names").join("03").join("[hotseat] 111.GM2"));
     require!(save.valid());
 
     // Stronghold
@@ -89,7 +89,7 @@ fn towns_names_stronghold_fortress() {
 #[test]
 fn towns_names_conflux_cove() {
     let _guard = common::Guard::new("towns-names-conflux-cove");
-    let save = open(data_dir("town_names").join("04").join("[hotseat] 111.GM2"));
+    let save = open(&data_dir("town_names").join("04").join("[hotseat] 111.GM2"));
     require!(save.valid());
 
     // Conflux

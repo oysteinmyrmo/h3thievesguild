@@ -16,7 +16,7 @@ use h3save::{
 #[test]
 fn hero_player_01() {
     let _guard = common::Guard::new("hero-player-01");
-    let save = open(data_dir("hero_player").join("[hotseat] 111.01.GM8"));
+    let save = open(&data_dir("hero_player").join("[hotseat] 111.01.GM8"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");
@@ -47,7 +47,7 @@ fn hero_player_01() {
 #[test]
 fn hero_player_02() {
     let _guard = common::Guard::new("hero-player-02");
-    let save = open(data_dir("hero_player").join("[hotseat] 111.02.GM8"));
+    let save = open(&data_dir("hero_player").join("[hotseat] 111.02.GM8"));
     require!(save.valid());
 
     let hero = find_hero(&save, "Orrin");

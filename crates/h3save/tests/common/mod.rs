@@ -7,7 +7,7 @@
 #![allow(dead_code)]
 
 use std::cell::Cell;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use h3save::creatures::MAX_STACKS;
 use h3save::{Creature, Hero, Input, SaveFile, Town};
@@ -75,13 +75,13 @@ pub fn data_dir(group: &str) -> PathBuf {
 }
 
 /// Read a save whose towns all have default names.
-pub fn open(path: PathBuf) -> SaveFile {
-    SaveFile::read(&Input::new(&path)).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+pub fn open(path: &Path) -> SaveFile {
+    SaveFile::read(&Input::new(path)).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
 /// Read a save with renamed towns.
-pub fn open_with_towns(path: PathBuf, first_town_name: &str, number_of_towns: usize) -> SaveFile {
-    SaveFile::read(&Input::with_towns(&path, first_town_name, number_of_towns))
+pub fn open_with_towns(path: &Path, first_town_name: &str, number_of_towns: usize) -> SaveFile {
+    SaveFile::read(&Input::with_towns(path, first_town_name, number_of_towns))
         .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 

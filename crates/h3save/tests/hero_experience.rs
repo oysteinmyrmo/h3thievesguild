@@ -16,7 +16,7 @@ use h3save::{
 #[test]
 fn hero_experience_day1() {
     let _guard = common::Guard::new("hero-experience-day1");
-    let save = open(data_dir("experience").join("[hotseat] 111.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 111.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -43,7 +43,7 @@ fn hero_experience_day1() {
 #[test]
 fn hero_experience_day2() {
     let _guard = common::Guard::new("hero-experience-day2");
-    let save = open(data_dir("experience").join("[hotseat] 112.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 112.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -70,7 +70,7 @@ fn hero_experience_day2() {
 #[test]
 fn hero_experience_day3() {
     let _guard = common::Guard::new("hero-experience-day3");
-    let save = open(data_dir("experience").join("[hotseat] 113.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 113.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -97,7 +97,7 @@ fn hero_experience_day3() {
 #[test]
 fn hero_experience_day4() {
     let _guard = common::Guard::new("hero-experience-day4");
-    let save = open(data_dir("experience").join("[hotseat] 114.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 114.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -124,7 +124,7 @@ fn hero_experience_day4() {
 #[test]
 fn hero_experience_day5() {
     let _guard = common::Guard::new("hero-experience-day5");
-    let save = open(data_dir("experience").join("[hotseat] 115.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 115.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -141,7 +141,7 @@ fn hero_experience_day5() {
 
     let hero = find_hero(&save, "Thant");
     require_eq!(hero.level, 21);
-    require_eq!(hero.experience, 101800);
+    require_eq!(hero.experience, 101_800);
     require_eq!(hero.attack, 5);
     require_eq!(hero.defense, 5);
     require_eq!(hero.power, 7);
@@ -151,7 +151,7 @@ fn hero_experience_day5() {
 #[test]
 fn hero_experience_day6() {
     let _guard = common::Guard::new("hero-experience-day6");
-    let save = open(data_dir("experience").join("[hotseat] 116.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 116.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -168,7 +168,7 @@ fn hero_experience_day6() {
 
     let hero = find_hero(&save, "Thant");
     require_eq!(hero.level, 21);
-    require_eq!(hero.experience, 107800);
+    require_eq!(hero.experience, 107_800);
     require_eq!(hero.attack, 5);
     require_eq!(hero.defense, 5);
     require_eq!(hero.power, 7);
@@ -178,7 +178,7 @@ fn hero_experience_day6() {
 #[test]
 fn hero_experience_day7() {
     let _guard = common::Guard::new("hero-experience-day7");
-    let save = open(data_dir("experience").join("[hotseat] 117.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 117.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -195,7 +195,7 @@ fn hero_experience_day7() {
 
     let hero = find_hero(&save, "Thant");
     require_eq!(hero.level, 21);
-    require_eq!(hero.experience, 112800);
+    require_eq!(hero.experience, 112_800);
     require_eq!(hero.attack, 5);
     require_eq!(hero.defense, 5);
     require_eq!(hero.power, 7);
@@ -205,7 +205,7 @@ fn hero_experience_day7() {
 #[test]
 fn hero_experience_day8() {
     let _guard = common::Guard::new("hero-experience-day8");
-    let save = open(data_dir("experience").join("[hotseat] 121.GM2"));
+    let save = open(&data_dir("experience").join("[hotseat] 121.GM2"));
     require!(save.valid());
 
     require_eq!(save.towns.len(), 2);
@@ -222,7 +222,7 @@ fn hero_experience_day8() {
 
     let hero = find_hero(&save, "Thant");
     require_eq!(hero.level, 22);
-    require_eq!(hero.experience, 120720);
+    require_eq!(hero.experience, 120_720);
     require_eq!(hero.attack, 5);
     require_eq!(hero.defense, 5);
     require_eq!(hero.power, 7);

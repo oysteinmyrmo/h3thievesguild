@@ -69,6 +69,7 @@ impl Input {
     }
 
     /// Whether towns are found by searching for default town names.
+    #[must_use]
     pub fn read_all_towns_automatically(&self) -> bool {
         self.first_town_name.is_empty() || self.number_of_towns == 0
     }
@@ -119,6 +120,10 @@ impl From<OutOfBounds> for Error {
 }
 
 /// Decompress a save file read from disk.
+///
+/// # Errors
+///
+/// [`Error::Io`] if the file cannot be read, and the errors of [`decompress`].
 pub fn decompress_file(path: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
     decompress(&std::fs::read(path)?)
 }
@@ -127,19 +132,16 @@ pub fn decompress_file(path: impl AsRef<Path>) -> Result<Vec<u8>, Error> {
 ///
 /// Every save ends with a gzip trailer that does not match the data, so the integrity check
 /// fails at the very end. As in the C++ code, that error is ignored once all data is out.
+///
+/// # Errors
+///
+/// [`Error::NotASaveFile`] if the data is not gzip or does not start with a save header.
 pub fn decompress(compressed: &[u8]) -> Result<Vec<u8>, Error> {
-    let mut decoder = GzDecoder::new(compressed);
     let mut out = Vec::with_capacity(compressed.len() * 16);
-    let mut buf = [0u8; 64 * 1024];
-    loop {
-        match decoder.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => out.extend_from_slice(&buf[..n]),
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            // Only the trailer check can fail after data has come out.
-            Err(_) if !out.is_empty() => break,
-            Err(_) => return Err(Error::NotASaveFile),
-        }
+    // On error, `read_to_end` keeps the bytes read so far. Only the trailer check can fail
+    // after data has come out, so an error with data is the expected end of a save.
+    if GzDecoder::new(compressed).read_to_end(&mut out).is_err() && out.is_empty() {
+        return Err(Error::NotASaveFile);
     }
     if out.len() < HEADER_NORMAL.len() || !is_save_header(&out) {
         return Err(Error::NotASaveFile);
@@ -177,12 +179,20 @@ pub struct SaveFile {
 
 impl SaveFile {
     /// Read and parse a save file.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`decompress_file`] and [`SaveFile::parse`].
     pub fn read(input: &Input) -> Result<SaveFile, Error> {
         let data = decompress_file(&input.path)?;
         SaveFile::parse(&data, input)
     }
 
     /// Parse decompressed save data. `input.path` is not used.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Truncated`] if a record runs past the end of the data.
     pub fn parse(data: &[u8], input: &Input) -> Result<SaveFile, Error> {
         let mut r = Reader::at(data, 0);
         let header = r.array()?;
@@ -237,24 +247,29 @@ impl SaveFile {
     }
 
     /// Whether the header is a scenario or campaign save.
+    #[must_use]
     pub fn valid(&self) -> bool {
         self.normal_save_file() || self.campaign_save_file()
     }
 
+    #[must_use]
     pub fn normal_save_file(&self) -> bool {
         self.header.starts_with(HEADER_NORMAL)
     }
 
+    #[must_use]
     pub fn campaign_save_file(&self) -> bool {
         self.header.starts_with(HEADER_CAMPAIGN)
     }
 
     /// The first town with this name.
+    #[must_use]
     pub fn find_town(&self, name: &str) -> Option<&Town> {
         self.towns.iter().find(|t| t.name == name)
     }
 
     /// The first hero with this name.
+    #[must_use]
     pub fn find_hero(&self, name: &str) -> Option<&Hero> {
         self.heroes.iter().find(|h| h.name() == name)
     }
@@ -268,6 +283,7 @@ fn latin1_bytes(name: &str) -> Vec<u8> {
 }
 
 /// The players come right before the first town (or the first hero when there are no towns).
+#[must_use]
 pub fn first_player_index(first_town_idx: usize) -> Option<usize> {
     first_town_idx.checked_sub(MAX_PLAYERS * PLAYER_RECORD_SIZE)
 }
@@ -276,6 +292,7 @@ pub fn first_player_index(first_town_idx: usize) -> Option<usize> {
 /// hero for default town names.
 ///
 /// Returns `(None, 0)` when the search runs off the start of the data.
+#[must_use]
 pub fn first_town_index_and_count(data: &[u8], first_hero_idx: usize) -> (Option<usize>, usize) {
     let Some(mut town_end) = first_hero_idx.checked_sub(1) else {
         return (None, 0);
@@ -303,6 +320,7 @@ pub fn first_town_index_and_count(data: &[u8], first_hero_idx: usize) -> (Option
 }
 
 /// Index of the first town, found by its name. The first town is always red player's start town.
+#[must_use]
 pub fn first_town_index(data: &[u8], first_town_name: &str) -> Option<usize> {
     if first_town_name.is_empty() {
         return None;
@@ -311,6 +329,7 @@ pub fn first_town_index(data: &[u8], first_town_name: &str) -> Option<usize> {
 }
 
 /// Index of the first hero, found by searching for the first hero's name (Orrin by default).
+#[must_use]
 pub fn first_hero_index(data: &[u8], first_hero_name: &str) -> Option<usize> {
     if first_hero_name.is_empty() {
         return None;
