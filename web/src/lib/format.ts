@@ -1,5 +1,6 @@
 // Text shown for numbers and dates.
 
+import type { XAxisMode } from "./options";
 import type { Dataset, Day } from "./wasm/pkg/h3wasm";
 
 const whole = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
@@ -17,6 +18,11 @@ export function formatAxis(value: number): string {
 
 export function longDate(day: Pick<Day, "month" | "week" | "dayOfWeek">): string {
     return `Month ${day.month}, Week ${day.week}, Day ${day.dayOfWeek}`;
+}
+
+/** A day on the x-axis: its number, such as "12", or its date, such as "1-2-5". */
+export function axisLabel(day: Pick<Day, "day" | "label">, mode: XAxisMode): string {
+    return mode === "day" ? String(day.day) : day.label;
 }
 
 /** The game's span, such as "1-1-1 to 1-2-3 (10 days)". */

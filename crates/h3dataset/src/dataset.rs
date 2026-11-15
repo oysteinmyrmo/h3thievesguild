@@ -119,7 +119,8 @@ pub struct PlayerSeries {
     pub color: String,
     /// The first day the player was out of the game after having been in it, if any.
     pub eliminated_day: Option<u32>,
-    /// One row per player statistic, keyed by [`StatInfo::id`].
+    /// One row per player statistic, keyed by [`StatInfo::id`]. Every statistic is 0 on the
+    /// day the player is eliminated, so the lines drop to 0 there, and missing after it.
     pub values: BTreeMap<String, Vec<Option<f64>>>,
 }
 
@@ -494,19 +495,24 @@ fn player_series(saves: &[Summary], slots: &[Option<usize>], color: Color) -> Op
         .collect();
     // Elimination is judged on the days with a save: a missing day says nothing.
     let first_alive = rows.iter().position(Option::is_some)?;
-    let eliminated_day = rows
+    let eliminated = rows
         .iter()
-        .zip(saves)
+        .enumerate()
         .skip(first_alive)
-        .find(|(row, _)| row.is_none())
-        .map(|(_, s)| day_number(s.date));
+        .find_map(|(save, row)| row.is_none().then_some(save));
+    let eliminated_day = eliminated.and_then(|save| saves.get(save)).map(|s| day_number(s.date));
     let values = PLAYER_STATS
         .iter()
         .enumerate()
         .map(|(i, stat)| {
             let per_save: Vec<Option<f64>> = rows
                 .iter()
-                .map(|r| r.and_then(|values| values.get(i).copied()))
+                .enumerate()
+                .map(|(save, r)| match r {
+                    Some(values) => values.get(i).copied(),
+                    None if Some(save) == eliminated => Some(0.0),
+                    None => None,
+                })
                 .collect();
             (stat.info.id.to_string(), spread(&per_save, slots))
         })

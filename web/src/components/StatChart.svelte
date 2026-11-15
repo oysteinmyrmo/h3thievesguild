@@ -2,8 +2,9 @@
     import { onMount } from "svelte";
     import { statChartOption, visiblePlayers, playerValues } from "../lib/chart";
     import { echarts } from "../lib/echarts";
-    import { formatValue } from "../lib/format";
+    import { axisLabel, formatValue } from "../lib/format";
     import { displayName, type PlayerNames } from "../lib/names";
+    import type { XAxisMode } from "../lib/options";
     import { theme } from "../lib/theme.svelte";
     import type { Dataset, StatInfo } from "../lib/wasm/pkg/h3wasm";
 
@@ -13,8 +14,15 @@
         hidden,
         names,
         compact,
-    }: { dataset: Dataset; stat: StatInfo; hidden: ReadonlySet<string>; names: PlayerNames; compact: boolean } =
-        $props();
+        xAxis,
+    }: {
+        dataset: Dataset;
+        stat: StatInfo;
+        hidden: ReadonlySet<string>;
+        names: PlayerNames;
+        compact: boolean;
+        xAxis: XAxisMode;
+    } = $props();
 
     let element: HTMLDivElement;
     let chart = $state<ReturnType<typeof echarts.init> | undefined>(undefined);
@@ -30,7 +38,7 @@
     });
 
     $effect(() => {
-        const settings = { compact, hidden, names, theme: theme.current };
+        const settings = { compact, hidden, names, theme: theme.current, xAxis };
         chart?.setOption(statChartOption(dataset, stat.id, settings), { notMerge: true });
     });
 
@@ -51,7 +59,7 @@
     <tbody>
         {#each dataset.days as day, i (day.day)}
             <tr>
-                <th scope="row">{day.label}</th>
+                <th scope="row">{axisLabel(day, xAxis)}</th>
                 {#each players as player (player.id)}<td>{formatValue(playerValues(dataset, player, stat.id)[i])}</td>{/each}
             </tr>
         {/each}

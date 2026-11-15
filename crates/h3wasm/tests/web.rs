@@ -63,8 +63,9 @@ fn values_are_plain_objects_and_arrays_with_null_for_missing_days() {
     let gold: Array = get(&values, "gold").dyn_into().unwrap();
     assert_eq!(gold.get(0).as_f64(), Some(3400.0));
     assert_eq!(gold.get(1).as_f64(), Some(6700.0));
-    // Blue is out of the game on day 3: null, not undefined, which ECharts shows as a gap.
-    assert!(gold.get(2).is_null());
+    // Blue is out of the game on day 3, so every value is 0 that day. (Days without a save are
+    // null, not undefined, which ECharts shows as a gap; see the missing days test.)
+    assert_eq!(gold.get(2).as_f64(), Some(0.0));
     assert_eq!(get(&blue, "eliminatedDay").as_f64(), Some(3.0));
     let red = players.iter().find(|p| get(p, "id") == "red").unwrap();
     assert!(get(&red, "eliminatedDay").is_null());

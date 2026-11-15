@@ -1,7 +1,8 @@
 // The loaded game and the user's choices about it, shared by the components.
 
 import { cleanNames, type PlayerNames } from "./names";
-import { forgetGame, recallGame, rememberGame } from "./storage";
+import type { ChartOptions } from "./options";
+import { forgetGame, recallGame, recallOptions, rememberGame, rememberOptions } from "./storage";
 import type { LoadError } from "./load";
 import type { Dataset } from "./wasm/pkg/h3wasm";
 
@@ -15,6 +16,8 @@ class Game {
     restoredAt = $state<string | undefined>(undefined);
     error = $state<LoadError | undefined>(undefined);
     loading = $state(false);
+    /** How the charts are drawn, for every game. */
+    options = $state<ChartOptions>(recallOptions());
 
     restore(): void {
         const stored = recallGame();
@@ -50,6 +53,11 @@ class Game {
         this.restoredAt = undefined;
         this.error = undefined;
         forgetGame();
+    }
+
+    setOptions(changes: Partial<ChartOptions>): void {
+        this.options = { ...this.options, ...changes };
+        rememberOptions(this.options);
     }
 
     togglePlayer(id: string): void {

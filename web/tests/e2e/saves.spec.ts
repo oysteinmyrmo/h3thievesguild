@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import type { Download } from "@playwright/test";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,10 +41,11 @@ test("loading a game shows the map, the players and a chart per statistic", asyn
     // One card per player statistic, each with a drawn chart.
     await expect(page.locator("[data-testid^=card-]")).toHaveCount(14);
     await expect(page.getByTestId("card-gold").locator("canvas").first()).toBeVisible();
-    // The values, as the table behind each chart: blue's gold from info.txt, gone on day 3.
+    // The values, as the table behind each chart: blue's gold from info.txt, 0 on day 3 when
+    // blue is out of the game.
     const gold = page.getByTestId("table-gold").first();
     await expect(gold.locator("tbody tr").nth(0)).toContainText("3,400");
-    await expect(gold.locator("tbody tr").nth(2).locator("td").nth(1)).toHaveText("—");
+    await expect(gold.locator("tbody tr").nth(2).locator("td").nth(1)).toHaveText("0");
 });
 
 test("a chart opens in a full-page view and Back returns to the grid", async ({ page }) => {
@@ -149,9 +151,10 @@ test("players can be named, with any characters, and the charts use the names", 
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await expect(dialog).toHaveCount(0);
 
-    // Chips show the name, with the colour beside it.
+    // Chips show only the name; the colour is in the dot and the tooltip.
     await expect(page.getByTestId("chip-name-red")).toHaveText(odd);
-    await expect(page.getByTestId("chip-red")).toContainText("Red");
+    await expect(page.getByTestId("chip-red")).not.toContainText("Red");
+    await expect(page.getByTestId("chip-red")).toHaveAttribute("title", `Hide ${odd} (Red)`);
     await expect(page.getByTestId("chip-name-blue")).toHaveText("Bob");
     await expect(page.getByTestId("chip-name-tan")).toHaveText("Tan");
     // Every chart's data uses the names.
@@ -196,4 +199,116 @@ test("a new game starts without names", async ({ page }) => {
     await choose(page, [save("experience", "[hotseat] 111.GM2"), save("experience", "[hotseat] 112.GM2")]);
     await expect(page.getByTestId("map-name")).toHaveText("SaveGameTester_Experience");
     await expect(page.getByTestId("chip-name-purple")).toHaveText("Purple");
+});
+
+test("the full-page view steps to the previous and next chart, wrapping around", async ({ page }) => {
+    await choose(page, RESOURCES);
+    await expect(page.locator("[data-testid^=card-]")).toHaveCount(14);
+    const ids = await page.locator("[data-testid^=card-]").evaluateAll((cards) =>
+        cards.map((c) => c.getAttribute("data-testid")!.replace("card-", "")),
+    );
+    expect(ids).toHaveLength(14);
+    await page.getByTestId(`card-${ids[0]}`).click();
+    await page.getByTestId("next-chart").click();
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[1]}$`));
+    await page.getByTestId("previous-chart").click();
+    await page.getByTestId("previous-chart").click();
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[13]}$`));
+    await page.getByTestId("next-chart").click();
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[0]}$`));
+    // The page has caught up with the URL once the chart's table is there.
+    await expect(page.getByTestId(`table-${ids[0]}`)).toHaveCount(1);
+    // The arrow keys do the same.
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId(`table-${ids[1]}`)).toHaveCount(1);
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId(`table-${ids[2]}`)).toHaveCount(1);
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[2]}$`));
+    await page.keyboard.press("ArrowLeft");
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[1]}$`));
+    await expect(page.getByTestId(`table-${ids[1]}`)).toHaveCount(1);
+});
+
+test("the x-axis shows day numbers or dates, and the choice is remembered", async ({ page }) => {
+    await choose(page, RESOURCES);
+    const days = page.getByTestId("table-gold").first().locator("tbody th");
+    await expect(days).toHaveText(["1", "2", "3"]);
+    await page.getByTestId("card-gold").click();
+    const select = page.getByTestId("x-axis");
+    await expect(select).toHaveValue("day");
+    await select.selectOption("date");
+    await expect(page.getByTestId("table-gold").locator("tbody th")).toHaveText(["1-1-1", "1-1-2", "1-1-3"]);
+    // Arrow keys in the dropdown are for the dropdown, not for stepping through the charts.
+    // (The last option is chosen, so this one leaves it as it is.)
+    await select.press("ArrowRight");
+    await expect(page).toHaveURL(/#\/saves\/gold$/);
+    await page.reload();
+    await expect(page.getByTestId("x-axis")).toHaveValue("date");
+    await page.getByRole("link", { name: "← All charts" }).click();
+    await expect(page.getByTestId("table-wood").locator("tbody th")).toHaveText(["1-1-1", "1-1-2", "1-1-3"]);
+});
+
+/** The bytes of a download. */
+async function bytes(download: Download): Promise<Buffer> {
+    return readFileSync(await download.path());
+}
+
+/** WebKit in Playwright suggests download names with spaces turned into underscores. */
+function expectFileName(download: Download, name: string) {
+    expect(download.suggestedFilename().replaceAll(" ", "_")).toBe(name.replaceAll(" ", "_"));
+}
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Width and height of a PNG image, from its header. */
+function pngSize(png: Buffer): [number, number] {
+    return [png.readUInt32BE(16), png.readUInt32BE(20)];
+}
+
+test("a chart downloads as a PNG image, from its page or its card", async ({ page }) => {
+    await choose(page, RESOURCES);
+    let wait = page.waitForEvent("download");
+    await page.getByTestId("download-wood").click();
+    let file = await wait;
+    expectFileName(file, "SaveGameTester_Resources - Wood.png");
+    let png = await bytes(file);
+    expect(png.subarray(0, 8)).toEqual(PNG_SIGNATURE);
+    // Drawn at a fixed size, twice over for sharpness, whatever the size of the card.
+    expect(pngSize(png)).toEqual([3200, 1800]);
+
+    await page.getByTestId("card-gold").click();
+    wait = page.waitForEvent("download");
+    await page.getByTestId("download-chart").click();
+    file = await wait;
+    expectFileName(file, "SaveGameTester_Resources - Gold.png");
+    png = await bytes(file);
+    expect(png.subarray(0, 8)).toEqual(PNG_SIGNATURE);
+    expect(pngSize(png)).toEqual([3200, 1800]);
+});
+
+test("all charts download as PNG images in one ZIP file", async ({ page }) => {
+    await choose(page, RESOURCES);
+    const wait = page.waitForEvent("download");
+    await page.getByTestId("download-all").click();
+    const file = await wait;
+    expectFileName(file, "SaveGameTester_Resources - charts.zip");
+    const zip = await bytes(file);
+    // Read the central directory: one PNG image per chart.
+    const end = zip.length - 22;
+    expect(zip.readUInt32LE(end)).toBe(0x06054b50);
+    expect(zip.readUInt16LE(end + 10)).toBe(14);
+    let pos = zip.readUInt32LE(end + 16);
+    const names: string[] = [];
+    for (let i = 0; i < 14; i++) {
+        const nameLength = zip.readUInt16LE(pos + 28);
+        const local = zip.readUInt32LE(pos + 42);
+        names.push(zip.subarray(pos + 46, pos + 46 + nameLength).toString("utf8"));
+        const dataStart = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+        expect(zip.subarray(dataStart, dataStart + 8)).toEqual(PNG_SIGNATURE);
+        pos += 46 + nameLength;
+    }
+    expect(names).toContain("SaveGameTester_Resources - Gold.png");
+    expect(names).toContain("SaveGameTester_Resources - Kingdom army strength.png");
+    expect(new Set(names).size).toBe(14);
+    await expect(page.getByTestId("download-all")).toBeEnabled();
 });

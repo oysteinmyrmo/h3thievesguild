@@ -2,9 +2,11 @@
 // unavailable or full; the page then simply does not remember.
 
 import { cleanNames, type PlayerNames } from "./names";
+import { cleanOptions, type ChartOptions } from "./options";
 import type { Dataset } from "./wasm/pkg/h3wasm";
 
 export const STORAGE_KEY = "h3thievesguild.lastGame.v1";
+export const OPTIONS_KEY = "h3thievesguild.chartOptions.v1";
 
 export interface StoredGame {
     dataset: Dataset;
@@ -51,6 +53,26 @@ export function recallGame(): StoredGame | undefined {
         return { dataset: game.dataset, names, savedAt: game.savedAt };
     } catch {
         return undefined;
+    }
+}
+
+/** Store the chart options. Returns whether it could. */
+export function rememberOptions(options: ChartOptions): boolean {
+    try {
+        localStorage.setItem(OPTIONS_KEY, JSON.stringify(options));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** The stored chart options, with defaults for any missing or not valid. */
+export function recallOptions(): ChartOptions {
+    try {
+        const text = localStorage.getItem(OPTIONS_KEY);
+        return cleanOptions(text ? JSON.parse(text) : undefined);
+    } catch {
+        return cleanOptions(undefined);
     }
 }
 
