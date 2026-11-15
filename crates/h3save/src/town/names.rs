@@ -1,6 +1,6 @@
 // Generated from the homm3tools C++ sources. Edit by hand from here on.
 
-/// Default town names, used to find towns when the map does not rename them.
+/// Default town names, 16 per town type, in town type order.
 /// From <https://heroes.thelazy.net/index.php/List_of_all_town_names>.
 pub const TOWN_NAMES: &[&str] = &[
     "Alexandretta",
@@ -163,4 +163,38 @@ pub const TOWN_NAMES: &[&str] = &[
     "Walendale",
     "Watergate",
     "Westland Pier",
+    // Factory, from <https://heroes.thelazy.net/index.php/Factory>.
+    "Arcadia",
+    "Ardon",
+    "Aurichalcum",
+    "Burton",
+    "Corakstone",
+    "Dardentor",
+    "Endurance",
+    "Fort Rotwang",
+    "Kergar",
+    "Mount Copper",
+    "New Dolere",
+    "Prospero",
+    "Ridder",
+    "Salda",
+    "Volta",
+    "Vulcan",
+    // Bulwark, new in HotA 1.8, from <https://heroes.thelazy.net/index.php/Bulwark>.
+    "Alfheim",
+    "Anabar",
+    "Borea",
+    "Ellesmere",
+    "Everwinter",
+    "Halsmere",
+    "Jotunngard",
+    "Ketpall",
+    "Meghion",
+    "Stonefang",
+    "Thulekh",
+    "Tundara",
+    "Varand",
+    "White Mouth",
+    "Windskalir",
+    "Winterkill",
 ];
