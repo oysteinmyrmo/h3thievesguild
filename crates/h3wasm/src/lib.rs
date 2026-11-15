@@ -18,9 +18,9 @@
 //! }
 //! ```
 //!
-//! The data set is a plain object, described by the TypeScript types in this crate and by
-//! [`h3dataset::Dataset`]. Missing values are `null`, so each `values` row works directly as
-//! ECharts series data.
+//! The data set is a plain object. Its TypeScript types are generated from
+//! [`h3dataset::Dataset`] and the error types into the `.d.ts` file wasm-bindgen writes.
+//! Missing values are `null`, so each `values` row works directly as ECharts series data.
 
 // Save files come from users: the bindings must not panic on any input.
 #![cfg_attr(
@@ -40,10 +40,6 @@
 use h3dataset::{Builder, DatasetError};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
-
-/// TypeScript types of the data set and errors, added to the generated `.d.ts` file.
-#[wasm_bindgen(typescript_custom_section)]
-const TYPESCRIPT: &str = include_str!("types.d.ts");
 
 /// Serialize as plain objects with `null` for missing values, as ECharts expects.
 fn to_js<T: Serialize + ?Sized>(value: &T) -> Result<JsValue, JsValue> {
@@ -108,84 +104,5 @@ impl DatasetBuilder {
     pub fn finish(self) -> Result<JsValue, JsValue> {
         let dataset = self.inner.finish().map_err(|e| to_js_error(&e))?;
         to_js(&dataset)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeSet;
-    use std::path::Path;
-
-    use serde_json::Value;
-
-    /// Every key of every object in `value`, except the keys of `values` maps, which are
-    /// statistic IDs rather than fields.
-    fn keys(value: &Value, out: &mut BTreeSet<String>) {
-        match value {
-            Value::Object(map) => {
-                for (key, v) in map {
-                    out.insert(key.clone());
-                    if key != "values" {
-                        keys(v, out);
-                    }
-                }
-            }
-            Value::Array(items) => items.iter().for_each(|v| keys(v, out)),
-            _ => {}
-        }
-    }
-
-    const TYPESCRIPT: &str = include_str!("types.d.ts");
-
-    #[test]
-    fn the_typescript_types_name_every_field_of_the_dataset_and_errors() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/resources");
-        let files: Vec<(String, Vec<u8>)> = ["[hotseat] 111.GM8", "[hotseat] 113.GM5"]
-            .iter()
-            .map(|n| ((*n).to_string(), std::fs::read(dir.join(n)).unwrap()))
-            .collect();
-        let dataset = h3dataset::build(files.iter().map(|(n, b)| (n.as_str(), b.as_slice()))).unwrap();
-        let mut fields = BTreeSet::new();
-        keys(&serde_json::to_value(&dataset).unwrap(), &mut fields);
-        let errors = [
-            h3dataset::DatasetError::Unreadable(vec![h3dataset::UnreadableFile {
-                file: "f".into(),
-                reason: "r".into(),
-            }]),
-            h3dataset::DatasetError::MixedGames(vec![h3dataset::GameFiles {
-                map_name: "m".into(),
-                map_size: "S".into(),
-                underground: false,
-                files: vec![],
-            }]),
-            h3dataset::DatasetError::DuplicateDays(vec![h3dataset::DayFiles {
-                date: "d".into(),
-                files: vec![],
-            }]),
-            h3dataset::DatasetError::TooManyDays {
-                days: 1,
-                first: h3dataset::DayFiles {
-                    date: "d".into(),
-                    files: vec![],
-                },
-                last: h3dataset::DayFiles {
-                    date: "d".into(),
-                    files: vec![],
-                },
-            },
-        ];
-        for error in &errors {
-            keys(&serde_json::to_value(error).unwrap(), &mut fields);
-        }
-        for field in &fields {
-            let named = TYPESCRIPT.contains(&format!("{field}:")) || TYPESCRIPT.contains(&format!("{field}?:"));
-            assert!(named, "TypeScript types lack `{field}`");
-        }
-        for kind in ["noSaves", "unreadable", "mixedGames", "duplicateDays", "tooManyDays"] {
-            assert!(
-                TYPESCRIPT.contains(&format!("\"{kind}\"")),
-                "TypeScript types lack kind {kind}"
-            );
-        }
     }
 }
