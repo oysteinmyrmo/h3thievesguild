@@ -2,7 +2,8 @@
 
 import { cleanNames, type PlayerNames } from "./names";
 import { forgetGame, recallGame, rememberGame } from "./storage";
-import type { Dataset, LoadError } from "./types";
+import type { LoadError } from "./load";
+import type { Dataset } from "./wasm/pkg/h3wasm";
 
 class Game {
     dataset = $state<Dataset | undefined>(undefined);

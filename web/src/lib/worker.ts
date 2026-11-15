@@ -1,8 +1,7 @@
-// Parses save files off the main thread, so the page stays responsive.
+// Parses save files off the main thread.
 
 import init from "./wasm/pkg/h3wasm";
-import { buildDataset, toLoadError } from "./parse";
-import type { LoadResult, SaveInput } from "./types";
+import { buildDataset, toLoadError, type LoadResult, type SaveInput } from "./load";
 
 const ready = init();
 

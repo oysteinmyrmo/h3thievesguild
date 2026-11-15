@@ -1,19 +1,20 @@
 <script lang="ts">
-    import { errorView } from "../lib/errors";
-    import type { LoadError } from "../lib/types";
+    import type { LoadError } from "../lib/load";
+    import { splitMessage } from "../lib/message";
 
     let { error }: { error: LoadError } = $props();
-    const view = $derived(errorView(error));
+    // The parser's message names every file involved.
+    const parts = $derived(splitMessage(error.message));
 </script>
 
 <div class="error" role="alert" data-testid="error" data-kind={error.kind}>
-    <strong>{view.title}</strong>
-    {#if view.items.length > 0}
+    <strong>{parts.title}</strong>
+    {#if parts.items.length > 0}
         <ul>
-            {#each view.items as item (item)}<li>{item}</li>{/each}
+            {#each parts.items as item (item)}<li>{item}</li>{/each}
         </ul>
     {/if}
-    {#if view.hint}<p>{view.hint}</p>{/if}
+    {#each parts.after as line (line)}<p>{line}</p>{/each}
 </div>
 
 <style>
@@ -26,11 +27,11 @@
     }
 
     ul {
-        margin: 8px 0;
+        margin: 8px 0 0;
         padding-left: 20px;
     }
 
     p {
-        margin: 0;
+        margin: 8px 0 0;
     }
 </style>

@@ -4,8 +4,8 @@
     import { echarts } from "../lib/echarts";
     import { formatValue } from "../lib/format";
     import { displayName, type PlayerNames } from "../lib/names";
-    import { readTheme } from "../lib/theme";
-    import type { Dataset, StatInfo } from "../lib/types";
+    import { theme } from "../lib/theme.svelte";
+    import type { Dataset, StatInfo } from "../lib/wasm/pkg/h3wasm";
 
     let {
         dataset,
@@ -18,24 +18,20 @@
 
     let element: HTMLDivElement;
     let chart = $state<ReturnType<typeof echarts.init> | undefined>(undefined);
-    let theme = $state(readTheme());
 
     onMount(() => {
         chart = echarts.init(element);
         const resize = new ResizeObserver(() => chart?.resize());
         resize.observe(element);
-        const scheme = matchMedia("(prefers-color-scheme: dark)");
-        const retheme = () => (theme = readTheme());
-        scheme.addEventListener("change", retheme);
         return () => {
-            scheme.removeEventListener("change", retheme);
             resize.disconnect();
             chart?.dispose();
         };
     });
 
     $effect(() => {
-        chart?.setOption(statChartOption(dataset, stat.id, { compact, hidden, names, theme }), { notMerge: true });
+        const settings = { compact, hidden, names, theme: theme.current };
+        chart?.setOption(statChartOption(dataset, stat.id, settings), { notMerge: true });
     });
 
     const players = $derived(visiblePlayers(dataset, hidden));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { errorView } from "../../src/lib/errors";
 import { daySpan, escapeHtml, formatAxis, formatValue, longDate, missingDaysText } from "../../src/lib/format";
+import { splitMessage } from "../../src/lib/message";
 import { RESOURCES, dataset } from "./saves";
 
 describe("formatting", () => {
@@ -26,29 +26,38 @@ describe("formatting", () => {
     });
 });
 
-describe("error views", () => {
+describe("messages", () => {
+    // The parser's messages, as h3dataset writes them.
     it("lists the files of each problem", () => {
+        expect(splitMessage("more than one save for the same day; keep one save per day:\n- Month 1, Week 1, Day 1: a, b")).toEqual({
+            title: "More than one save for the same day; keep one save per day:",
+            items: ["Month 1, Week 1, Day 1: a, b"],
+            after: [],
+        });
         expect(
-            errorView({ kind: "duplicateDays", message: "", details: [{ date: "Month 1, Week 1, Day 1", files: ["a", "b"] }] }).items,
-        ).toEqual(["Month 1, Week 1, Day 1: a, b"]);
+            splitMessage('the saves come from 2 different games; select the saves of one game:\n- map "Arena" (M with underground): x, y\n- map "B" (S): z').items,
+        ).toEqual(['map "Arena" (M with underground): x, y', 'map "B" (S): z']);
+        expect(splitMessage("these files could not be read as saves:\n- f: bad").items).toEqual(["f: bad"]);
         expect(
-            errorView({
-                kind: "mixedGames",
-                message: "",
-                details: [{ mapName: "Arena", mapSize: "M", underground: true, files: ["x", "y"] }],
-            }).items,
-        ).toEqual(["Arena (M, with underground): x, y"]);
-        expect(errorView({ kind: "unreadable", message: "", details: [{ file: "f", reason: "bad" }] }).items).toEqual([
-            "f: bad",
-        ]);
-        expect(
-            errorView({
-                kind: "tooManyDays",
-                message: "",
-                details: { days: 4000, first: { date: "d1", files: ["a"] }, last: { date: "d2", files: ["b"] } },
-            }).items,
-        ).toEqual(["First: a (d1)", "Last: b (d2)"]);
-        expect(errorView({ kind: "noSaves", message: "" }).items).toEqual([]);
-        expect(errorView({ kind: "unexpected", message: "boom" }).items).toEqual(["boom"]);
+            splitMessage(
+                "the saves span 4000 days, more than a data set can hold; check the dates of the first save, a (d1), and the last, b (d2)",
+            ),
+        ).toEqual({
+            title: "The saves span 4000 days, more than a data set can hold; check the dates of the first save, a (d1), and the last, b (d2)",
+            items: [],
+            after: [],
+        });
+        expect(splitMessage("no save files were given")).toEqual({ title: "No save files were given", items: [], after: [] });
+        expect(splitMessage("boom")).toEqual({ title: "Boom", items: [], after: [] });
+    });
+
+    it("keeps the lines after the list", () => {
+        const warning = "There are no saves for 3 days between the first and the last save:\n- Month 1, Week 1, Day 2\n- Month 1, Week 1, Day 5 to Month 1, Week 1, Day 6\nThese days are left empty in the charts. Continue?";
+        expect(splitMessage(warning)).toEqual({
+            title: "There are no saves for 3 days between the first and the last save:",
+            items: ["Month 1, Week 1, Day 2", "Month 1, Week 1, Day 5 to Month 1, Week 1, Day 6"],
+            after: ["These days are left empty in the charts. Continue?"],
+        });
+        expect(splitMessage("")).toEqual({ title: "", items: [], after: [] });
     });
 });

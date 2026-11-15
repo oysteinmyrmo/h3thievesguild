@@ -5,8 +5,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { initSync } from "../../src/lib/wasm/pkg/h3wasm";
-import { buildDataset } from "../../src/lib/parse";
-import type { Dataset, SaveInput } from "../../src/lib/types";
+import { buildDataset, type SaveInput } from "../../src/lib/load";
+import type { Dataset } from "../../src/lib/wasm/pkg/h3wasm";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const testData = join(here, "..", "..", "..", "test_data");

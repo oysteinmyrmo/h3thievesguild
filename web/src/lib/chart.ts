@@ -2,16 +2,8 @@
 
 import { escapeHtml, formatAxis, formatValue, longDate } from "./format";
 import { displayName, type PlayerNames } from "./names";
-import type { Dataset, PlayerSeries } from "./types";
-
-/** Colours from the page's theme, so charts follow light and dark mode. */
-export interface ChartTheme {
-    text: string;
-    muted: string;
-    gridLine: string;
-    missing: string;
-    tooltipBackground: string;
-}
+import type { ChartTheme } from "./theme.svelte";
+import type { Dataset, PlayerSeries } from "./wasm/pkg/h3wasm";
 
 export interface ChartSettings {
     /** Small chart in the overview grid: no legend, labels or zoom. */

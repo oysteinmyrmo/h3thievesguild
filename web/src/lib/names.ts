@@ -1,6 +1,6 @@
 // Names the user gives the players. A player without a name keeps its colour's name.
 
-import type { Dataset, PlayerSeries } from "./types";
+import type { Dataset, PlayerSeries } from "./wasm/pkg/h3wasm";
 
 /** Names by player colour ID, such as `{ red: "Alice" }`. */
 export type PlayerNames = Readonly<Record<string, string>>;
