@@ -3,8 +3,8 @@ import { ELIMINATED_SERIES, MISSING_SERIES, statChartOption, tooltipHtml, type C
 import { RESOURCES, dataset } from "./saves";
 
 const theme = { text: "#111", muted: "#666", gridLine: "#ddd", missing: "rgba(0,0,0,0.1)", tooltipBackground: "#fff" };
-const detail: ChartSettings = { compact: false, hidden: new Set(), theme };
-const compact: ChartSettings = { compact: true, hidden: new Set(), theme };
+const detail: ChartSettings = { compact: false, hidden: new Set(), names: {}, theme };
+const compact: ChartSettings = { compact: true, hidden: new Set(), names: {}, theme };
 
 type Series = {
     id?: string;
@@ -12,7 +12,7 @@ type Series = {
     data: (number | null)[];
     color?: string;
     showSymbol?: boolean;
-    markLine?: { data: { xAxis: string; label: { formatter: string } }[]; label: { show: boolean } };
+    markLine?: { data: { xAxis: string; label: { formatter: () => string; align: string } }[]; label: { show: boolean } };
     markArea?: { data: { xAxis: string }[][] };
 };
 
@@ -31,7 +31,12 @@ describe("statChartOption", () => {
         expect(lines[0]!.color).toBe("#f80000");
         // Gold from info.txt, with teal's estates correction on day 3.
         expect(lines.find((s) => s.id === "teal")!.data).toEqual([2500, 5950, 6200]);
-        expect(option.legend.data).toEqual(lines.map((s) => s.name));
+        // The legend shows the players' names; the series are named by colour ID.
+        expect(option.legend.data).toEqual(lines.map((s) => s.id));
+        expect(lines.map((s) => s.name)).toEqual(lines.map((s) => s.id));
+        expect(option.legend.data.map(option.legend.formatter)).toEqual([
+            "Red", "Blue", "Tan", "Green", "Orange", "Purple", "Teal", "Pink",
+        ]);
     });
 
     it("leaves gaps where a player is out of the game and marks the elimination", () => {
@@ -39,14 +44,16 @@ describe("statChartOption", () => {
         expect(lines.find((s) => s.id === "blue")!.data).toEqual([3400, 6700, null]);
         // Blue, tan and orange are out on day 3: one line, naming all three.
         const eliminated = lines.find((s) => s.name === ELIMINATED_SERIES)!;
-        expect(eliminated.markLine?.data).toEqual([{ xAxis: "1-1-3", label: { formatter: "Blue, Tan, Orange out" } }]);
+        expect(eliminated.markLine?.data.map((d) => [d.xAxis, d.label.formatter()])).toEqual([["1-1-3", "Blue, Tan, Orange out"]]);
         expect(eliminated.markLine?.label.show).toBe(true);
+        // Day 3 is the last day, so the label runs leftwards, into the chart.
+        expect(eliminated.markLine?.data[0]?.label.align).toBe("right");
         expect(lines).toHaveLength(9);
     });
 
     it("only names shown players as eliminated, and leaves the marker out when none is", () => {
         const some = series(statChartOption(full, "gold", { ...detail, hidden: new Set(["tan"]) }));
-        expect(some.find((s) => s.name === ELIMINATED_SERIES)!.markLine?.data[0]?.label.formatter).toBe("Blue, Orange out");
+        expect(some.find((s) => s.name === ELIMINATED_SERIES)!.markLine?.data[0]?.label.formatter()).toBe("Blue, Orange out");
         const none = series(statChartOption(full, "gold", { ...detail, hidden: new Set(["blue", "tan", "orange"]) }));
         expect(none.find((s) => s.name === ELIMINATED_SERIES)).toBeUndefined();
     });
@@ -55,7 +62,7 @@ describe("statChartOption", () => {
         const option = statChartOption(full, "gold", { ...detail, hidden: new Set(["red", "pink"]) });
         expect(series(option).map((s) => s.id)).not.toContain("red");
         expect(series(option).filter((s) => s.id !== undefined)).toHaveLength(6);
-        expect(option.legend.data).not.toContain("Pink");
+        expect(option.legend.data).not.toContain("pink");
     });
 
     it("is simpler in the overview grid", () => {
@@ -80,6 +87,23 @@ describe("statChartOption", () => {
         expect(statChartOption(full, "heroes", detail).yAxis.minInterval).toBe(1);
     });
 
+    it("shows the players' names in the legend and elimination line", () => {
+        const names = { blue: "Bob {b} <i>", orange: "Bob {b} <i>", red: "Ålesund" };
+        const option = statChartOption(full, "gold", { ...detail, names });
+        expect(option.legend.data.map(option.legend.formatter)).toEqual([
+            "Ålesund", "Bob {b} <i>", "Tan", "Green", "Bob {b} <i>", "Purple", "Teal", "Pink",
+        ]);
+        // Two players with the same name are still two series.
+        expect(new Set(series(option).map((s) => s.name)).size).toBe(series(option).length);
+        const eliminated = series(option).find((s) => s.name === ELIMINATED_SERIES)!;
+        expect(eliminated.markLine?.data[0]?.label.formatter()).toBe("Bob {b} <i>, Tan, Bob {b} <i> out");
+    });
+
+    it("uses the colour's name for a player named only with spaces", () => {
+        const option = statChartOption(full, "gold", { ...detail, names: { red: "   " } });
+        expect(option.legend.formatter("red")).toBe("Red");
+    });
+
     it("gives every player an empty row for an unknown statistic", () => {
         const lines = series(statChartOption(full, "nonsense", detail));
         expect(lines[0]!.data).toEqual([null, null, null]);
@@ -100,6 +124,12 @@ describe("tooltipHtml", () => {
     it("says when a day has no save", () => {
         const gap = dataset([RESOURCES[0]!, RESOURCES[2]!]);
         expect(tooltipHtml(gap, "gold", 1, gap.players)).toContain("No save for this day");
+    });
+
+    it("shows players' names, escaped", () => {
+        const html = tooltipHtml(full, "gold", 0, full.players.slice(0, 2), { red: "<b>Ann</b> & {a}" });
+        expect(html).toContain("&lt;b&gt;Ann&lt;/b&gt; &amp; {a}: <strong>2,500</strong>");
+        expect(html).toContain("Blue: <strong>3,400</strong>");
     });
 
     it("escapes file names", () => {

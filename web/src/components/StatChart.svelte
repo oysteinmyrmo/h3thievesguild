@@ -3,6 +3,7 @@
     import { statChartOption, visiblePlayers, playerValues } from "../lib/chart";
     import { echarts } from "../lib/echarts";
     import { formatValue } from "../lib/format";
+    import { displayName, type PlayerNames } from "../lib/names";
     import { readTheme } from "../lib/theme";
     import type { Dataset, StatInfo } from "../lib/types";
 
@@ -10,8 +11,10 @@
         dataset,
         stat,
         hidden,
+        names,
         compact,
-    }: { dataset: Dataset; stat: StatInfo; hidden: ReadonlySet<string>; compact: boolean } = $props();
+    }: { dataset: Dataset; stat: StatInfo; hidden: ReadonlySet<string>; names: PlayerNames; compact: boolean } =
+        $props();
 
     let element: HTMLDivElement;
     let chart = $state<ReturnType<typeof echarts.init> | undefined>(undefined);
@@ -32,7 +35,7 @@
     });
 
     $effect(() => {
-        chart?.setOption(statChartOption(dataset, stat.id, { compact, hidden, theme }), { notMerge: true });
+        chart?.setOption(statChartOption(dataset, stat.id, { compact, hidden, names, theme }), { notMerge: true });
     });
 
     const players = $derived(visiblePlayers(dataset, hidden));
@@ -46,7 +49,7 @@
     <thead>
         <tr>
             <th scope="col">Day</th>
-            {#each players as player (player.id)}<th scope="col">{player.name}</th>{/each}
+            {#each players as player (player.id)}<th scope="col">{displayName(player, names)}</th>{/each}
         </tr>
     </thead>
     <tbody>

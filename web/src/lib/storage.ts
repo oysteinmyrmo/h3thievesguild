@@ -1,12 +1,15 @@
 // Remembers the last loaded game in the browser, so a reload shows it again. Storage can be
 // unavailable or full; the page then simply does not remember.
 
+import { cleanNames, type PlayerNames } from "./names";
 import type { Dataset } from "./types";
 
 export const STORAGE_KEY = "h3thievesguild.lastGame.v1";
 
 export interface StoredGame {
     dataset: Dataset;
+    /** Names the user gave the players. */
+    names: PlayerNames;
     savedAt: string;
 }
 
@@ -37,9 +40,13 @@ function looksLikeDataset(value: unknown): value is Dataset {
     );
 }
 
-export function rememberGame(dataset: Dataset, storage: KeyValueStore | undefined = store()): boolean {
+export function rememberGame(
+    dataset: Dataset,
+    names: PlayerNames = {},
+    storage: KeyValueStore | undefined = store(),
+): boolean {
     try {
-        const game: StoredGame = { dataset, savedAt: new Date().toISOString() };
+        const game: StoredGame = { dataset, names, savedAt: new Date().toISOString() };
         storage?.setItem(STORAGE_KEY, JSON.stringify(game));
         return storage !== undefined;
     } catch {
@@ -54,9 +61,12 @@ export function recallGame(storage: KeyValueStore | undefined = store()): Stored
             return undefined;
         }
         const game = JSON.parse(text) as Partial<StoredGame>;
-        return looksLikeDataset(game.dataset) && typeof game.savedAt === "string"
-            ? { dataset: game.dataset, savedAt: game.savedAt }
-            : undefined;
+        if (!looksLikeDataset(game.dataset) || typeof game.savedAt !== "string") {
+            return undefined;
+        }
+        // Names are optional: games remembered before players could be named have none.
+        const names = typeof game.names === "object" && game.names !== null ? cleanNames(game.names, game.dataset) : {};
+        return { dataset: game.dataset, names, savedAt: game.savedAt };
     } catch {
         return undefined;
     }

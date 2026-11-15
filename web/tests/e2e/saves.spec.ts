@@ -136,3 +136,64 @@ test("the calculators page says they are coming", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Calculators" })).toBeVisible();
     await expect(page.getByText("Calculators are coming soon.")).toBeVisible();
 });
+
+test("players can be named, with any characters, and the charts use the names", async ({ page }) => {
+    await choose(page, RESOURCES);
+    await page.getByTestId("name-players").click();
+    const dialog = page.getByTestId("name-players-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId("name-red")).toHaveAttribute("placeholder", "Red");
+    const odd = `Ålesund {a} <b>&"'`;
+    await dialog.getByTestId("name-red").fill(odd);
+    await dialog.getByTestId("name-blue").fill("Bob");
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+
+    // Chips show the name, with the colour beside it.
+    await expect(page.getByTestId("chip-name-red")).toHaveText(odd);
+    await expect(page.getByTestId("chip-red")).toContainText("Red");
+    await expect(page.getByTestId("chip-name-blue")).toHaveText("Bob");
+    await expect(page.getByTestId("chip-name-tan")).toHaveText("Tan");
+    // Every chart's data uses the names.
+    const header = page.getByTestId("table-gold").locator("thead th");
+    await expect(header).toHaveText(["Day", odd, "Bob", "Tan", "Green", "Orange", "Purple", "Teal", "Pink"]);
+    await expect(page.getByTestId("table-towns").locator("thead th").nth(1)).toHaveText(odd);
+    await page.getByTestId("card-gold").click();
+    await expect(page.getByTestId("table-gold").locator("thead th").nth(2)).toHaveText("Bob");
+});
+
+test("player names are remembered, and an empty name gives back the colour", async ({ page }) => {
+    await choose(page, RESOURCES);
+    await page.getByTestId("name-players").click();
+    await page.getByTestId("name-teal").fill("Tea Lady");
+    await page.getByTestId("name-pink").fill("Pinky");
+    await page.getByTestId("name-players-dialog").getByRole("button", { name: "Save", exact: true }).click();
+    await page.reload();
+    await expect(page.getByTestId("chip-name-teal")).toHaveText("Tea Lady");
+    await expect(page.getByTestId("chip-name-pink")).toHaveText("Pinky");
+
+    // The dialog starts from the current names; emptying one, or Cancel, behave as expected.
+    await page.getByTestId("name-players").click();
+    await expect(page.getByTestId("name-teal")).toHaveValue("Tea Lady");
+    await page.getByTestId("name-teal").fill("");
+    await page.getByTestId("name-pink").fill("   ");
+    await page.getByTestId("name-players-dialog").getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByTestId("chip-name-teal")).toHaveText("Teal");
+    await expect(page.getByTestId("chip-name-pink")).toHaveText("Pink");
+
+    await page.getByTestId("name-players").click();
+    await page.getByTestId("name-red").fill("Not saved");
+    await page.getByTestId("name-players-dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByTestId("chip-name-red")).toHaveText("Red");
+});
+
+test("a new game starts without names", async ({ page }) => {
+    await choose(page, RESOURCES);
+    await page.getByTestId("name-players").click();
+    await page.getByTestId("name-purple").fill("Violet");
+    await page.getByTestId("name-players-dialog").getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByTestId("chip-name-purple")).toHaveText("Violet");
+    await choose(page, [save("experience", "[hotseat] 111.GM2"), save("experience", "[hotseat] 112.GM2")]);
+    await expect(page.getByTestId("map-name")).toHaveText("SaveGameTester_Experience");
+    await expect(page.getByTestId("chip-name-purple")).toHaveText("Purple");
+});

@@ -1,6 +1,7 @@
 // ECharts options for a player statistic: one line per player in the player's colour.
 
 import { escapeHtml, formatAxis, formatValue, longDate } from "./format";
+import { displayName, type PlayerNames } from "./names";
 import type { Dataset, PlayerSeries } from "./types";
 
 /** Colours from the page's theme, so charts follow light and dark mode. */
@@ -17,6 +18,8 @@ export interface ChartSettings {
     compact: boolean;
     /** IDs of players not to show. */
     hidden: ReadonlySet<string>;
+    /** Names the user gave the players. */
+    names: PlayerNames;
     theme: ChartTheme;
 }
 
@@ -36,7 +39,13 @@ export function playerValues(dataset: Dataset, player: PlayerSeries, statId: str
 }
 
 /** HTML for the tooltip of one day. */
-export function tooltipHtml(dataset: Dataset, statId: string, dayIndex: number, players: PlayerSeries[]): string {
+export function tooltipHtml(
+    dataset: Dataset,
+    statId: string,
+    dayIndex: number,
+    players: PlayerSeries[],
+    names: PlayerNames = {},
+): string {
     const day = dataset.days[dayIndex];
     if (!day) {
         return "";
@@ -46,7 +55,7 @@ export function tooltipHtml(dataset: Dataset, statId: string, dayIndex: number, 
     const rows = players.map((p) => {
         const value = formatValue(playerValues(dataset, p, statId)[dayIndex]);
         const marker = `<span class="tooltip-marker" style="background:${escapeHtml(p.color)}"></span>`;
-        return `${marker}${escapeHtml(p.name)}: <strong>${value}</strong>`;
+        return `${marker}${escapeHtml(displayName(p, names))}: <strong>${value}</strong>`;
     });
     return [header, ...rows].join("<br>");
 }
@@ -61,7 +70,7 @@ function eliminationSeries(dataset: Dataset, players: PlayerSeries[], settings: 
     for (const player of players) {
         const label = player.eliminatedDay === null ? undefined : labelOfDay(dataset, player.eliminatedDay);
         if (label !== undefined) {
-            byDay.set(label, [...(byDay.get(label) ?? []), player.name]);
+            byDay.set(label, [...(byDay.get(label) ?? []), displayName(player, settings.names)]);
         }
     }
     if (byDay.size === 0) {
@@ -78,7 +87,15 @@ function eliminationSeries(dataset: Dataset, players: PlayerSeries[], settings: 
             symbol: ["none", "none"],
             lineStyle: { color: settings.theme.muted, type: "dashed", width: 1.5 },
             label: { show: !settings.compact, color: settings.theme.text, position: "end" },
-            data: [...byDay].map(([label, names]) => ({ xAxis: label, label: { formatter: `${names.join(", ")} out` } })),
+            // A function, not a string: ECharts reads {braces} in string formatters as templates,
+            // and a player's name may contain any character.
+            // The label runs towards the middle of the chart, so it is not cut off at an edge.
+            data: [...byDay].map(([label, names]) => {
+                const text = `${names.join(", ")} out`;
+                const index = dataset.days.findIndex((d) => d.label === label);
+                const align = index > (dataset.days.length - 1) / 2 ? "right" : "left";
+                return { xAxis: label, label: { formatter: () => text, align } };
+            }),
         },
     };
 }
@@ -112,9 +129,11 @@ function missingDaysArea(dataset: Dataset, settings: ChartSettings) {
 export function statChartOption(dataset: Dataset, statId: string, settings: ChartSettings) {
     const { compact, theme } = settings;
     const players = visiblePlayers(dataset, settings.hidden);
+    // Series are named by colour ID, which is unique; the legend shows the player's name. Two
+    // players may be given the same name.
     const series: object[] = players.map((player) => ({
         id: player.id,
-        name: player.name,
+        name: player.id,
         type: "line",
         data: playerValues(dataset, player, statId),
         connectNulls: false,
@@ -142,7 +161,11 @@ export function statChartOption(dataset: Dataset, statId: string, settings: Char
         legend: {
             show: !compact,
             top: 0,
-            data: players.map((p) => p.name),
+            data: players.map((p) => p.id),
+            formatter: (id: string) => {
+                const player = players.find((p) => p.id === id);
+                return player ? displayName(player, settings.names) : id;
+            },
             textStyle: { color: theme.text },
         },
         tooltip: {
@@ -152,7 +175,7 @@ export function statChartOption(dataset: Dataset, statId: string, settings: Char
             textStyle: { color: theme.text },
             formatter: (params: { dataIndex: number }[] | { dataIndex: number }) => {
                 const first = Array.isArray(params) ? params[0] : params;
-                return first ? tooltipHtml(dataset, statId, first.dataIndex, players) : "";
+                return first ? tooltipHtml(dataset, statId, first.dataIndex, players, settings.names) : "";
             },
         },
         xAxis: {

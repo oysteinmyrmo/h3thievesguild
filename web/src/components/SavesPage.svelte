@@ -89,7 +89,7 @@
                 <h2>{detail.name}</h2>
             </div>
             <div class="detail-chart">
-                <StatChart dataset={game.dataset} stat={detail} hidden={game.hidden} compact={false} />
+                <StatChart dataset={game.dataset} stat={detail} hidden={game.hidden} names={game.names} compact={false} />
             </div>
         </section>
     {:else}
@@ -99,7 +99,7 @@
                     <h3>{info.name}</h3>
                     <span class="group">{info.group}</span>
                     <div class="card-chart">
-                        <StatChart dataset={game.dataset} stat={info} hidden={game.hidden} compact={true} />
+                        <StatChart dataset={game.dataset} stat={info} hidden={game.hidden} names={game.names} compact={true} />
                     </div>
                 </a>
             {/each}
