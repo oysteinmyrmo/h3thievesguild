@@ -142,29 +142,29 @@
     {/if}
     <GameHeader dataset={game.dataset} />
     {#if detail}
+        <div class="detail-toolbar">
+            <a class="button" href="#/saves">← All charts</a>
+            {#if previous && next}
+                <nav class="stepper" aria-label="Other charts">
+                    <a class="button" href={`#/saves/${previous.id}`} title={previous.name} data-testid="previous-chart">
+                        ← Previous chart
+                    </a>
+                    <a class="button" href={`#/saves/${next.id}`} title={next.name} data-testid="next-chart">
+                        Next chart →
+                    </a>
+                </nav>
+            {/if}
+            <button
+                class="save-png"
+                data-testid="download-chart"
+                disabled={exporting !== undefined}
+                onclick={() => savePng(detail)}
+            >
+                {exporting === detail.id ? "Saving…" : "⤓ Download PNG"}
+            </button>
+        </div>
         <section class="detail" aria-label={detail.name}>
-            <div class="detail-bar">
-                <a class="button" href="#/saves">← All charts</a>
-                <h2>{detail.name}</h2>
-                <button
-                    class="save-png"
-                    data-testid="download-chart"
-                    disabled={exporting !== undefined}
-                    onclick={() => savePng(detail)}
-                >
-                    {exporting === detail.id ? "Saving…" : "⤓ Download PNG"}
-                </button>
-                {#if previous && next}
-                    <nav class="stepper" aria-label="Other charts">
-                        <a class="button" href={`#/saves/${previous.id}`} title={previous.name} data-testid="previous-chart">
-                            ← Previous chart
-                        </a>
-                        <a class="button" href={`#/saves/${next.id}`} title={next.name} data-testid="next-chart">
-                            Next chart →
-                        </a>
-                    </nav>
-                {/if}
-            </div>
+            <h2>{detail.name}</h2>
             <div class="detail-body">
                 <div class="detail-chart">
                     <StatChart
@@ -177,7 +177,7 @@
                     />
                 </div>
                 <aside class="options" aria-label="Chart options">
-                    <h3>Display</h3>
+                    <h3>Display options</h3>
                     <label>
                         X-axis
                         <select
@@ -334,19 +334,20 @@
         padding: 16px;
     }
 
-    .detail-bar {
+    .detail-toolbar {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 8px;
+        margin-bottom: 12px;
     }
 
-    .detail-bar h2 {
+    .detail-toolbar a {
+        text-decoration: none;
+    }
+
+    .detail h2 {
         margin: 0;
         font-size: 18px;
-    }
-
-    .detail-bar a {
-        text-decoration: none;
     }
 
     .save-png {
@@ -356,11 +357,12 @@
     .stepper {
         display: flex;
         gap: 8px;
+        margin-left: 8px;
     }
 
     .detail-body {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 220px;
+        grid-template-columns: minmax(0, 1fr) 300px;
         gap: 16px;
         margin-top: 8px;
     }
