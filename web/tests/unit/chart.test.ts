@@ -127,6 +127,21 @@ describe("statChartOption", () => {
         expect(shade.markArea?.data).toEqual([[{ xAxis: "1" }, { xAxis: "3" }]]);
     });
 
+    it("has a title, and no zoom bar or animation, when drawn as an image", () => {
+        const long = dataset(RESOURCES);
+        const days = Array.from({ length: 40 }, (_, i) => ({ ...long.days[0]!, day: i + 1, label: `d${i + 1}` }));
+        const many = { ...long, days };
+        expect(statChartOption(many, "gold", detail).dataZoom).toHaveLength(2);
+        const option = statChartOption(many, "gold", { ...detail, title: { text: "Gold", subtext: "My map" } });
+        expect(option.title).toMatchObject({ text: "Gold", subtext: "My map" });
+        expect(option.dataZoom).toEqual([]);
+        expect(option.animation).toBe(false);
+        // The legend and the plot move down to make room for the title.
+        expect(option.legend.top).toBeGreaterThan(0);
+        expect((option.grid as { top: number }).top).toBeGreaterThan(statChartOption(many, "gold", detail).grid.top);
+        expect(statChartOption(many, "gold", detail).title).toEqual({ show: false });
+    });
+
     it("uses whole numbers on the value axis", () => {
         expect(statChartOption(full, "heroes", detail).yAxis.minInterval).toBe(1);
     });

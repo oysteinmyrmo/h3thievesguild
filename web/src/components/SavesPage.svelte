@@ -6,6 +6,9 @@
     import { game } from "../lib/game.svelte";
     import { loadSaves, readFiles } from "../lib/load";
     import { X_AXIS_MODES, type XAxisMode } from "../lib/options";
+    import { chartFileName, chartPng, chartsZip, download, fileName, printable } from "../lib/export";
+    import { theme } from "../lib/theme.svelte";
+    import type { StatInfo } from "../lib/wasm/pkg/h3wasm";
     import { router } from "../lib/router.svelte";
     import type { Dataset } from "../lib/wasm/pkg/h3wasm";
 
@@ -50,6 +53,38 @@
     // The charts before and after this one, wrapping around at the ends.
     const previous = $derived(stats[(detailIndex - 1 + stats.length) % stats.length]);
     const next = $derived(stats[(detailIndex + 1) % stats.length]);
+
+    /** What is being saved as an image: a statistic's ID, "all", or nothing. */
+    let exporting = $state<string | undefined>(undefined);
+
+    function exportSettings() {
+        return { hidden: game.hidden, names: game.names, theme: theme.current, xAxis: game.options.xAxis };
+    }
+
+    async function savePng(info: StatInfo) {
+        if (!game.dataset || exporting) {
+            return;
+        }
+        exporting = info.id;
+        try {
+            download(await chartPng(game.dataset, info, exportSettings()), chartFileName(game.dataset, info));
+        } finally {
+            exporting = undefined;
+        }
+    }
+
+    async function saveAll() {
+        if (!game.dataset || exporting) {
+            return;
+        }
+        exporting = "all";
+        try {
+            const name = fileName(`${printable(game.dataset.map.name)} - charts`, "zip");
+            download(await chartsZip(game.dataset, exportSettings()), name);
+        } finally {
+            exporting = undefined;
+        }
+    }
 
     /** The left and right arrow keys step through the charts, unless typing or in a dialog. */
     function step(event: KeyboardEvent) {
@@ -111,6 +146,14 @@
             <div class="detail-bar">
                 <a class="button" href="#/saves">← All charts</a>
                 <h2>{detail.name}</h2>
+                <button
+                    class="save-png"
+                    data-testid="download-chart"
+                    disabled={exporting !== undefined}
+                    onclick={() => savePng(detail)}
+                >
+                    {exporting === detail.id ? "Saving…" : "⤓ Download PNG"}
+                </button>
                 {#if previous && next}
                     <nav class="stepper" aria-label="Other charts">
                         <a class="button" href={`#/saves/${previous.id}`} title={previous.name} data-testid="previous-chart">
@@ -151,22 +194,40 @@
             </div>
         </section>
     {:else}
+        <div class="grid-bar">
+            <button data-testid="download-all" disabled={exporting !== undefined} onclick={saveAll}>
+                {exporting === "all" ? "Saving charts…" : "⤓ Download all as PNG (zip)"}
+            </button>
+        </div>
         <section class="grid" aria-label="All charts">
             {#each game.dataset.playerStats as info (info.id)}
-                <a class="card" href={`#/saves/${info.id}`} data-testid={`card-${info.id}`}>
-                    <h3>{info.name}</h3>
-                    <span class="group">{info.group}</span>
-                    <div class="card-chart">
-                        <StatChart
-                            dataset={game.dataset}
-                            stat={info}
-                            hidden={game.hidden}
-                            names={game.names}
-                            compact={true}
-                            xAxis={game.options.xAxis}
-                        />
-                    </div>
-                </a>
+                <!-- The button sits beside the link, not in it: a link cannot hold a button. -->
+                <div class="card-wrap">
+                    <a class="card" href={`#/saves/${info.id}`} data-testid={`card-${info.id}`}>
+                        <h3>{info.name}</h3>
+                        <span class="group">{info.group}</span>
+                        <div class="card-chart">
+                            <StatChart
+                                dataset={game.dataset}
+                                stat={info}
+                                hidden={game.hidden}
+                                names={game.names}
+                                compact={true}
+                                xAxis={game.options.xAxis}
+                            />
+                        </div>
+                    </a>
+                    <button
+                        class="card-png"
+                        data-testid={`download-${info.id}`}
+                        title={`Download ${info.name} as PNG`}
+                        aria-label={`Download ${info.name} as PNG`}
+                        disabled={exporting !== undefined}
+                        onclick={() => savePng(info)}
+                    >
+                        {exporting === info.id ? "…" : "⤓"}
+                    </button>
+                </div>
             {/each}
         </section>
     {/if}
@@ -212,14 +273,34 @@
         gap: 16px;
     }
 
+    .grid-bar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 12px;
+    }
+
+    .card-wrap {
+        position: relative;
+    }
+
+    .card-png {
+        position: absolute;
+        top: 9px;
+        right: 10px;
+        padding: 0 8px;
+        line-height: 24px;
+    }
+
     .card {
         display: grid;
+        height: 100%;
         grid-template-columns: 1fr auto;
         gap: 2px 8px;
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 12px 14px 8px;
+        /* Room on the right for the download button. */
+        padding: 12px 52px 8px 14px;
         color: inherit;
         text-decoration: none;
     }
@@ -242,6 +323,8 @@
     .card-chart {
         grid-column: 1 / -1;
         height: 180px;
+        /* The chart uses the full width; only the header leaves room for the button. */
+        margin-right: -38px;
     }
 
     .detail {
@@ -266,10 +349,13 @@
         text-decoration: none;
     }
 
+    .save-png {
+        margin-left: auto;
+    }
+
     .stepper {
         display: flex;
         gap: 8px;
-        margin-left: auto;
     }
 
     .detail-body {

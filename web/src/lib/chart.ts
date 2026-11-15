@@ -16,6 +16,8 @@ export interface ChartSettings {
     theme: ChartTheme;
     /** What the x-axis shows for each day. */
     xAxis: XAxisMode;
+    /** For an image: a title above the chart, no zoom bar and no animation. */
+    title?: { text: string; subtext: string };
 }
 
 /** Name of the series that shades days without a save. Not a player. */
@@ -149,7 +151,7 @@ function missingDaysArea(dataset: Dataset, settings: ChartSettings) {
 
 /** The full ECharts option for one player statistic. */
 export function statChartOption(dataset: Dataset, statId: string, settings: ChartSettings) {
-    const { compact, theme } = settings;
+    const { compact, theme, title } = settings;
     const players = visiblePlayers(dataset, settings.hidden);
     // Series are named by colour ID, which is unique; the legend shows the player's name. Two
     // players may be given the same name.
@@ -173,16 +175,27 @@ export function statChartOption(dataset: Dataset, statId: string, settings: Char
     if (dataset.missingDays.length > 0) {
         series.push(missingDaysArea(dataset, settings));
     }
-    const zoom = !compact && dataset.days.length > 28;
+    const zoom = !compact && !title && dataset.days.length > 28;
+    // Room for the title above the legend.
+    const top = title ? 64 : 0;
     return {
-        animation: !compact,
+        animation: !compact && !title,
         textStyle: { color: theme.text },
+        title: title
+            ? {
+                  text: title.text,
+                  subtext: title.subtext,
+                  left: "center",
+                  textStyle: { color: theme.text, fontSize: 20 },
+                  subtextStyle: { color: theme.muted },
+              }
+            : { show: false },
         grid: compact
             ? { left: 8, right: 12, top: 12, bottom: 8, containLabel: true }
-            : { left: 16, right: 24, top: 56, bottom: zoom ? 64 : 24, containLabel: true },
+            : { left: 16, right: 24, top: top + 56, bottom: zoom ? 64 : 24, containLabel: true },
         legend: {
             show: !compact,
-            top: 0,
+            top,
             data: players.map((p) => p.id),
             formatter: (id: string) => {
                 const player = players.find((p) => p.id === id);

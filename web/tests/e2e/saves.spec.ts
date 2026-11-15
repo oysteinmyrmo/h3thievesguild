@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import type { Download } from "@playwright/test";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -245,4 +246,69 @@ test("the x-axis shows day numbers or dates, and the choice is remembered", asyn
     await expect(page.getByTestId("x-axis")).toHaveValue("date");
     await page.getByRole("link", { name: "← All charts" }).click();
     await expect(page.getByTestId("table-wood").locator("tbody th")).toHaveText(["1-1-1", "1-1-2", "1-1-3"]);
+});
+
+/** The bytes of a download. */
+async function bytes(download: Download): Promise<Buffer> {
+    return readFileSync(await download.path());
+}
+
+/** WebKit in Playwright suggests download names with spaces turned into underscores. */
+function expectFileName(download: Download, name: string) {
+    expect(download.suggestedFilename().replaceAll(" ", "_")).toBe(name.replaceAll(" ", "_"));
+}
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Width and height of a PNG image, from its header. */
+function pngSize(png: Buffer): [number, number] {
+    return [png.readUInt32BE(16), png.readUInt32BE(20)];
+}
+
+test("a chart downloads as a PNG image, from its page or its card", async ({ page }) => {
+    await choose(page, RESOURCES);
+    let wait = page.waitForEvent("download");
+    await page.getByTestId("download-wood").click();
+    let file = await wait;
+    expectFileName(file, "SaveGameTester_Resources - Wood.png");
+    let png = await bytes(file);
+    expect(png.subarray(0, 8)).toEqual(PNG_SIGNATURE);
+    // Drawn at a fixed size, twice over for sharpness, whatever the size of the card.
+    expect(pngSize(png)).toEqual([3200, 1800]);
+
+    await page.getByTestId("card-gold").click();
+    wait = page.waitForEvent("download");
+    await page.getByTestId("download-chart").click();
+    file = await wait;
+    expectFileName(file, "SaveGameTester_Resources - Gold.png");
+    png = await bytes(file);
+    expect(png.subarray(0, 8)).toEqual(PNG_SIGNATURE);
+    expect(pngSize(png)).toEqual([3200, 1800]);
+});
+
+test("all charts download as PNG images in one ZIP file", async ({ page }) => {
+    await choose(page, RESOURCES);
+    const wait = page.waitForEvent("download");
+    await page.getByTestId("download-all").click();
+    const file = await wait;
+    expectFileName(file, "SaveGameTester_Resources - charts.zip");
+    const zip = await bytes(file);
+    // Read the central directory: one PNG image per chart.
+    const end = zip.length - 22;
+    expect(zip.readUInt32LE(end)).toBe(0x06054b50);
+    expect(zip.readUInt16LE(end + 10)).toBe(14);
+    let pos = zip.readUInt32LE(end + 16);
+    const names: string[] = [];
+    for (let i = 0; i < 14; i++) {
+        const nameLength = zip.readUInt16LE(pos + 28);
+        const local = zip.readUInt32LE(pos + 42);
+        names.push(zip.subarray(pos + 46, pos + 46 + nameLength).toString("utf8"));
+        const dataStart = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+        expect(zip.subarray(dataStart, dataStart + 8)).toEqual(PNG_SIGNATURE);
+        pos += 46 + nameLength;
+    }
+    expect(names).toContain("SaveGameTester_Resources - Gold.png");
+    expect(names).toContain("SaveGameTester_Resources - Kingdom army strength.png");
+    expect(new Set(names).size).toBe(14);
+    await expect(page.getByTestId("download-all")).toBeEnabled();
 });

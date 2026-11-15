@@ -1,6 +1,7 @@
 <script lang="ts">
     import { game } from "../lib/game.svelte";
     import { daySpan, missingDaysText } from "../lib/format";
+    import { printable } from "../lib/export";
     import { displayName } from "../lib/names";
     import NamePlayersDialog from "./NamePlayersDialog.svelte";
     import type { Dataset } from "../lib/wasm/pkg/h3wasm";
@@ -14,7 +15,7 @@
 
 <header>
     <div class="map">
-        <h2 data-testid="map-name">{dataset.map.name}</h2>
+        <h2 data-testid="map-name">{printable(dataset.map.name)}</h2>
         <span class="facts">
             <span>Map size {size}</span>
             <span data-testid="day-span">{daySpan(dataset)}</span>
