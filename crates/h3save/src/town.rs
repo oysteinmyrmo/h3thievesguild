@@ -9,7 +9,7 @@ use crate::stats;
 
 pub use names::TOWN_NAMES;
 
-/// Size of a town record without its name, in a HotA 1.8 save: the index byte plus the
+/// Size of a town record without its name, in HotA 1.7 and 1.8 saves: the index byte plus the
 /// town's data from its owner byte on.
 pub const TOWN_SIZE_WITHOUT_NAME: usize = 567;
 

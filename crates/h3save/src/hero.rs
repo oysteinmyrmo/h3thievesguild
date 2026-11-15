@@ -4,6 +4,7 @@ use crate::artifacts::{ARTIFACT_SLOT_COUNT, Artifact, ArtifactDetails, ArtifactE
 use crate::creatures::{Creature, MAX_STACKS};
 use crate::id_type;
 use crate::reader::{ReadResult, Reader, latin1, record_pos};
+use crate::savefile::Format;
 use crate::skills::{SKILL_COUNT, SKILL_SLOT_COUNT, Skill, SkillLevel, SkillSlot, SkillSlots};
 use crate::spells::{SPELL_COUNT, Spell};
 use crate::stats;
@@ -11,9 +12,6 @@ use crate::stats;
 /// Number of hero records in a HotA 1.8 save. A save always holds every hero, hired or not.
 /// See <https://heroes.thelazy.net/index.php/List_of_heroes_(HotA)>.
 pub const HERO_COUNT: usize = 215;
-
-/// Size of one hero record in a HotA 1.8 save.
-pub const HERO_RECORD_SIZE: usize = 1160;
 
 /// Offset from the start of a hero record to the hero's name.
 pub const NAME_OFFSET: usize = 195;
@@ -75,7 +73,7 @@ pub struct Hero {
     pub creature_count: [u32; MAX_STACKS],
     /// 0. Null-padded.
     pub name: [u8; 13],
-    /// +13. One per skill, Runes last.
+    /// +13. One per skill, Runes last. Runes is always [`SkillLevel::NONE`] before HotA 1.8.
     pub skill_levels: [SkillLevel; SKILL_COUNT],
     /// +69
     pub attack: u8,
@@ -91,7 +89,8 @@ pub struct Hero {
     pub spells: [u8; SPELL_COUNT],
     /// +213. Worn artifacts, then the backpack.
     pub artifacts: [ArtifactEntry; ARTIFACT_SLOT_COUNT],
-    /// +923. Slot 1-8 of each skill, 0 if not learned.
+    /// +923. Slot 1-8 of each skill, 0 if not learned. Saves before HotA 1.8 store no slot
+    /// for Runes, so it reads as 0.
     pub skill_slots: [u8; SKILL_COUNT],
 }
 
@@ -130,8 +129,8 @@ impl Default for Hero {
 }
 
 impl Hero {
-    /// Read one hero record starting at `pos`.
-    pub(crate) fn read(data: &[u8], pos: usize) -> ReadResult<Hero> {
+    /// Read one hero record of the given format starting at `pos`.
+    pub(crate) fn read(data: &[u8], pos: usize, format: Format) -> ReadResult<Hero> {
         let mut r = Reader::at(data, pos);
         let x = r.u16()?;
         let y = r.u16()?;
@@ -171,9 +170,12 @@ impl Hero {
                 scroll_spell_id,
             });
         r.skip(46)?;
-        let skill_slots = r.array()?;
-        r.skip(12)?; // New in HotA 1.8.
-        debug_assert_eq!(r.pos().wrapping_sub(pos), HERO_RECORD_SIZE);
+        let mut skill_slots = [0; SKILL_COUNT];
+        for slot in skill_slots.iter_mut().take(format.skill_count) {
+            *slot = r.u8()?;
+        }
+        r.skip(12)?;
+        debug_assert_eq!(r.pos().wrapping_sub(pos), format.hero_record_size);
         Ok(Hero {
             x,
             y,
@@ -402,20 +404,22 @@ impl Hero {
     }
 }
 
-/// Whether the bytes at `pos` look like a hero record. Used to find the hero array.
+/// Whether the bytes at `pos` look like a hero record of the given format. Used to find the
+/// hero array.
 ///
 /// Every check holds for every hero record in the test saves. The army check rejects runs of
 /// zero bytes, where a creature would have a count of 0.
 #[must_use]
-pub fn is_plausible_record(data: &[u8], pos: usize) -> bool {
-    pos.checked_add(HERO_RECORD_SIZE)
+pub fn is_plausible_record(data: &[u8], pos: usize, format: Format) -> bool {
+    pos.checked_add(format.hero_record_size)
         .and_then(|end| data.get(pos..end))
-        .and_then(plausible_record)
+        .and_then(|r| plausible_record(r, format.skill_count))
         .unwrap_or(false)
 }
 
-/// The checks of [`is_plausible_record`] on one record. `None` only if `r` is too short.
-fn plausible_record(r: &[u8]) -> Option<bool> {
+/// The checks of [`is_plausible_record`] on one record with `skill_count` skills. `None` only
+/// if `r` is too short.
+fn plausible_record(r: &[u8], skill_count: usize) -> Option<bool> {
     let byte = |i: usize| r.get(i).copied();
     let u16_at = |i: usize| Some(u16::from_le_bytes(r.get(i..i.checked_add(2)?)?.try_into().ok()?));
     let u32_le = |b: &[u8]| b.try_into().ok().map(u32::from_le_bytes);
@@ -452,15 +456,15 @@ fn plausible_record(r: &[u8]) -> Option<bool> {
             && name_ok
             && r.get(208..208 + SKILL_COUNT)?.iter().all(|&b| b <= 3)
             && r.get(268..268 + 2 * SPELL_COUNT)?.iter().all(|&b| b <= 1)
-            && r.get(1118..1118 + SKILL_COUNT)?
+            && r.get(1118..1118_usize.checked_add(skill_count)?)?
                 .iter()
                 .all(|&b| usize::from(b) <= SKILL_SLOT_COUNT),
     )
 }
 
-/// Read `count` consecutive hero records starting at `pos`.
-pub(crate) fn read_all(data: &[u8], pos: usize, count: usize) -> ReadResult<Vec<Hero>> {
+/// Read `count` consecutive hero records of the given format starting at `pos`.
+pub(crate) fn read_all(data: &[u8], pos: usize, count: usize, format: Format) -> ReadResult<Vec<Hero>> {
     (0..count)
-        .map(|i| Hero::read(data, record_pos(pos, i, HERO_RECORD_SIZE)?))
+        .map(|i| Hero::read(data, record_pos(pos, i, format.hero_record_size)?, format))
         .collect()
 }

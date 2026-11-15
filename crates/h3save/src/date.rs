@@ -12,8 +12,6 @@ pub const DAYS_PER_WEEK: u16 = 7;
 pub const WEEKS_PER_MONTH: u16 = 4;
 /// Days in a month.
 pub const DAYS_PER_MONTH: u16 = DAYS_PER_WEEK * WEEKS_PER_MONTH;
-/// Bytes from the end of the hero array to the date.
-pub const OFFSET_AFTER_HEROES: usize = 441;
 /// Size of the stored date: day, week and month as `u16`.
 pub const SIZE: usize = 6;
 

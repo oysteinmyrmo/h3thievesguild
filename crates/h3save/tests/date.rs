@@ -28,7 +28,7 @@ fn date_from_name(path: &Path) -> Date {
 /// Decompressed save data and the position of its date.
 fn data_and_date_pos(path: &Path) -> (Vec<u8>, usize) {
     let save = Decompressed::read(path);
-    let pos = save.heroes_end() + date::OFFSET_AFTER_HEROES;
+    let pos = save.heroes_end() + save.format.date_offset;
     (save.data, pos)
 }
 
@@ -39,7 +39,7 @@ fn sample() -> PathBuf {
 #[test]
 fn every_test_save_has_the_date_its_autosave_name_gives() {
     let saves = all_saves();
-    assert_eq!(saves.len(), 70);
+    assert_eq!(saves.len(), 72);
     for path in saves {
         let save = SaveFile::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         assert_eq!(save.date, date_from_name(&path), "{}", path.display());

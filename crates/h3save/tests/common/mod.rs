@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use h3save::creatures::MAX_STACKS;
-use h3save::savefile::{Layout, decompress_file};
+use h3save::savefile::{Format, Layout, decompress_file};
 use h3save::{Creature, Hero, SaveFile, Town};
 
 /// A folder, or a file, under `test_data`.
@@ -42,6 +42,7 @@ pub fn open(path: &Path) -> SaveFile {
 /// A save's decompressed data and where its blocks are.
 pub struct Decompressed {
     pub data: Vec<u8>,
+    pub format: Format,
     pub layout: Layout,
     pub hero_count: usize,
 }
@@ -50,9 +51,11 @@ impl Decompressed {
     pub fn read(path: &Path) -> Decompressed {
         let data = decompress_file(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         let hero_count = usize::try_from(u32::from_le_bytes(data[80..84].try_into().unwrap())).unwrap();
-        let layout = Layout::find(&data, hero_count).unwrap();
+        let format = Format::of(&data).unwrap();
+        let layout = Layout::find(&data, hero_count, format).unwrap();
         Decompressed {
             data,
+            format,
             layout,
             hero_count,
         }
@@ -60,7 +63,7 @@ impl Decompressed {
 
     /// One past the hero array.
     pub fn heroes_end(&self) -> usize {
-        self.layout.heroes + self.hero_count * h3save::hero::HERO_RECORD_SIZE
+        self.layout.heroes + self.hero_count * self.format.hero_record_size
     }
 }
 

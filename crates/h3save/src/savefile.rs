@@ -2,6 +2,9 @@
 //!
 //! The players, towns and heroes are found by the shape of their data, not by names:
 //!
+//! The few sizes that change between HotA versions are in [`Format`], chosen by the version
+//! in the header.
+//!
 //! 1. The hero array holds one fixed-size record per hero, and the header says how many.
 //!    It is found by looking for the one position where every record passes
 //!    [`hero::is_plausible_record`].
@@ -10,7 +13,7 @@
 //!    from the heroes for the count byte from which the towns read through to the heroes.
 //! 3. The eight player records end right where the town block starts. Each record starts with
 //!    its player index, and its hero and town IDs must be in range.
-//! 4. The date is a fixed distance after the end of the hero array; see [`crate::date`].
+//! 4. The date is a fixed distance after the end of the hero array, [`Format::date_offset`].
 
 use std::fmt;
 use std::io::Read;
@@ -19,7 +22,7 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 
 use crate::date::{self, Date};
-use crate::hero::{self, HERO_RECORD_SIZE, Hero};
+use crate::hero::{self, Hero};
 use crate::id_type;
 use crate::player::{self, MAX_PLAYERS, PLAYER_RECORD_SIZE, PlayerData};
 use crate::reader::{OutOfBounds, Reader, record_pos};
@@ -47,6 +50,55 @@ id_type! {
     }
 }
 
+/// The parts of the save layout that differ between HotA versions. Everything else is found
+/// by the shape of the data; see the [module documentation](self).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Format {
+    /// HotA major and minor version, from header bytes 16 and 20.
+    pub version: (u32, u32),
+    /// Size of one hero record.
+    pub hero_record_size: usize,
+    /// Number of secondary skills, which sets the size of the skill slot table in each hero
+    /// record.
+    pub skill_count: usize,
+    /// Bytes from the end of the hero array to the date. Between them are two bytes per
+    /// hero, so this grows with the number of heroes.
+    pub date_offset: usize,
+}
+
+impl Format {
+    pub const HOTA_1_7: Format = Format {
+        version: (1, 7),
+        hero_record_size: 1159,
+        skill_count: 29,
+        date_offset: 407,
+    };
+    /// Adds the Runes skill with the Bulwark town, one more skill slot per hero.
+    pub const HOTA_1_8: Format = Format {
+        version: (1, 8),
+        hero_record_size: 1160,
+        skill_count: 30,
+        date_offset: 441,
+    };
+    /// Every supported format, oldest first.
+    pub const ALL: [Format; 2] = [Format::HOTA_1_7, Format::HOTA_1_8];
+
+    /// The format of decompressed save data, by the HotA version in its header.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Truncated`] if the data ends inside the version, and
+    /// [`Error::UnsupportedVersion`] if no format has that version.
+    pub fn of(data: &[u8]) -> Result<Format, Error> {
+        let mut r = Reader::at(data, 16);
+        let version = (r.u32()?, r.u32()?);
+        Format::ALL
+            .into_iter()
+            .find(|f| f.version == version)
+            .ok_or(Error::UnsupportedVersion(version))
+    }
+}
+
 /// Why a save could not be read.
 #[derive(Debug)]
 pub enum Error {
@@ -55,6 +107,9 @@ pub enum Error {
     NotASaveFile,
     /// The file decompresses to more than [`MAX_DECOMPRESSED_SIZE`] bytes.
     TooLarge,
+    /// The save was written by a HotA version with no [`Format`]. Holds the major and minor
+    /// version.
+    UnsupportedVersion((u32, u32)),
     /// A record ran past the end of the decompressed data.
     Truncated {
         pos: usize,
@@ -82,6 +137,7 @@ impl fmt::Display for Error {
             Error::Io(e) => write!(f, "could not read the save file: {e}"),
             Error::NotASaveFile => write!(f, "not a Heroes 3 save file"),
             Error::TooLarge => write!(f, "save data is larger than {MAX_DECOMPRESSED_SIZE} bytes"),
+            Error::UnsupportedVersion((major, minor)) => write!(f, "saves from HotA {major}.{minor} are not supported"),
             Error::Truncated { pos, len } => write!(f, "save data ends before a {len}-byte read at offset {pos}"),
             Error::HeroesNotFound => write!(f, "could not find the hero records"),
             Error::AmbiguousHeroes { first, second } => {
@@ -167,14 +223,14 @@ pub struct Layout {
 }
 
 impl Layout {
-    /// Find the player, town and hero blocks in decompressed save data.
+    /// Find the player, town and hero blocks in decompressed save data of the given format.
     ///
     /// # Errors
     ///
     /// [`Error::HeroesNotFound`], [`Error::AmbiguousHeroes`], [`Error::TownsNotFound`] or
     /// [`Error::PlayersNotFound`] when a block cannot be found.
-    pub fn find(data: &[u8], hero_count: usize) -> Result<Layout, Error> {
-        let heroes = find_heroes(data, hero_count)?;
+    pub fn find(data: &[u8], hero_count: usize, format: Format) -> Result<Layout, Error> {
+        let heroes = find_heroes(data, hero_count, format)?;
         let town_count = find_town_count(data, heroes).ok_or(Error::TownsNotFound)?;
         let towns = data.get(town_count).map_or(0, |&n| usize::from(n));
         let players = town_count
@@ -189,24 +245,26 @@ impl Layout {
     }
 }
 
-/// Start of the hero array: the one position where `hero_count` consecutive records all look
-/// like hero records.
+/// Start of the hero array: the one position where `hero_count` consecutive records of the
+/// given format all look like hero records.
 ///
 /// # Errors
 ///
 /// [`Error::HeroesNotFound`] if there is no such position, [`Error::AmbiguousHeroes`] if there
 /// is more than one.
-pub fn find_heroes(data: &[u8], hero_count: usize) -> Result<usize, Error> {
-    let block_size = hero_count.checked_mul(HERO_RECORD_SIZE).ok_or(Error::HeroesNotFound)?;
+pub fn find_heroes(data: &[u8], hero_count: usize, format: Format) -> Result<usize, Error> {
+    let record_size = format.hero_record_size;
+    let block_size = hero_count.checked_mul(record_size).ok_or(Error::HeroesNotFound)?;
     let last_start = data.len().checked_sub(block_size).ok_or(Error::HeroesNotFound)?;
     let mut found = None;
     for pos in 0..=last_start {
         // Checking the first record rejects almost every position at once.
-        if !hero::is_plausible_record(data, pos) {
+        if !hero::is_plausible_record(data, pos, format) {
             continue;
         }
-        let all_plausible = (1..hero_count)
-            .all(|i| record_pos(pos, i, HERO_RECORD_SIZE).is_ok_and(|record| hero::is_plausible_record(data, record)));
+        let all_plausible = (1..hero_count).all(|i| {
+            record_pos(pos, i, record_size).is_ok_and(|record| hero::is_plausible_record(data, record, format))
+        });
         if all_plausible {
             match found {
                 None => found = Some(pos),
@@ -243,13 +301,11 @@ pub fn find_town_count(data: &[u8], heroes: usize) -> Option<usize> {
 }
 
 /// The date stored after the hero array that ends at `heroes_end`.
-fn read_date(data: &[u8], heroes_end: usize) -> Result<Date, Error> {
-    let pos = heroes_end
-        .checked_add(date::OFFSET_AFTER_HEROES)
-        .ok_or(Error::Truncated {
-            pos: heroes_end,
-            len: date::OFFSET_AFTER_HEROES,
-        })?;
+fn read_date(data: &[u8], heroes_end: usize, format: Format) -> Result<Date, Error> {
+    let pos = heroes_end.checked_add(format.date_offset).ok_or(Error::Truncated {
+        pos: heroes_end,
+        len: format.date_offset,
+    })?;
     let bytes = Reader::at(data, pos).array()?;
     Date::from_bytes(bytes).ok_or(Error::InvalidDate(bytes))
 }
@@ -258,7 +314,9 @@ fn read_date(data: &[u8], heroes_end: usize) -> Result<Date, Error> {
 #[derive(Clone, Debug)]
 pub struct SaveFile {
     pub header: [u8; 8],
-    /// Byte 80. Number of hero records (HotA 1.8).
+    /// From the HotA version at byte 16.
+    pub format: Format,
+    /// Byte 80. Number of hero records: 198 in HotA 1.7, 215 in HotA 1.8.
     pub hero_count: u32,
     /// Byte 90.
     pub map_size: MapSize,
@@ -295,10 +353,11 @@ impl SaveFile {
     /// # Errors
     ///
     /// [`Error::Truncated`] if a record runs past the end of the data, [`Error::InvalidDate`]
-    /// if the date is out of range, and the errors of [`Layout::find`].
+    /// if the date is out of range, and the errors of [`Format::of`] and [`Layout::find`].
     pub fn parse(data: &[u8]) -> Result<SaveFile, Error> {
         let mut r = Reader::at(data, 0);
         let header = r.array()?;
+        let format = Format::of(data)?;
         r.skip(72)?;
         let hero_count = r.u32()?;
         r.skip(6)?;
@@ -311,15 +370,16 @@ impl SaveFile {
         let description = r.string(usize::from(description_size))?;
 
         let hero_count_usize = usize::try_from(hero_count).map_err(|_| Error::HeroesNotFound)?;
-        let layout = Layout::find(data, hero_count_usize)?;
+        let layout = Layout::find(data, hero_count_usize, format)?;
         let towns_in_block = data.get(layout.town_count).map_or(0, |&n| usize::from(n));
         let players =
             player::read_all(data, layout.players, hero_count_usize, towns_in_block).ok_or(Error::PlayersNotFound)?;
         let (towns, _) = town::read_block(data, layout.town_count).ok_or(Error::TownsNotFound)?;
-        let heroes = hero::read_all(data, layout.heroes, hero_count_usize)?;
+        let heroes = hero::read_all(data, layout.heroes, hero_count_usize, format)?;
 
         Ok(SaveFile {
             header,
+            format,
             hero_count,
             map_size,
             has_underground,
@@ -327,7 +387,11 @@ impl SaveFile {
             map_name,
             description_size,
             description,
-            date: read_date(data, record_pos(layout.heroes, hero_count_usize, HERO_RECORD_SIZE)?)?,
+            date: read_date(
+                data,
+                record_pos(layout.heroes, hero_count_usize, format.hero_record_size)?,
+                format,
+            )?,
             players,
             towns,
             heroes,
@@ -399,11 +463,63 @@ mod tests {
         assert!(matches!(SaveFile::parse(b"H3SVG\0"), Err(Error::Truncated { .. })));
     }
 
+    /// Save data of `len` zero bytes with a save header for HotA `major`.`minor`.
+    fn empty_save(len: usize, major: u8, minor: u8) -> Vec<u8> {
+        let mut data = vec![0u8; len];
+        data[..6].copy_from_slice(HEADER_NORMAL);
+        data[16] = major;
+        data[20] = minor;
+        data
+    }
+
     #[test]
     fn data_without_heroes_is_an_error() {
-        let mut data = vec![0u8; 4096];
-        data[..6].copy_from_slice(HEADER_NORMAL);
+        let mut data = empty_save(4096, 1, 8);
         data[80] = 215;
         assert!(matches!(SaveFile::parse(&data), Err(Error::HeroesNotFound)));
+    }
+
+    #[test]
+    fn the_format_is_chosen_by_the_version_in_the_header() {
+        assert_eq!(Format::of(&empty_save(100, 1, 7)).unwrap(), Format::HOTA_1_7);
+        assert_eq!(Format::of(&empty_save(100, 1, 8)).unwrap(), Format::HOTA_1_8);
+    }
+
+    #[test]
+    fn an_unknown_version_is_an_error() {
+        for (major, minor) in [(1, 6), (1, 9), (2, 8), (0, 0)] {
+            let mut data = empty_save(4096, major, minor);
+            data[80] = 215;
+            let result = SaveFile::parse(&data);
+            assert!(
+                matches!(result, Err(Error::UnsupportedVersion(v)) if v == (u32::from(major), u32::from(minor))),
+                "{major}.{minor}: {result:?}"
+            );
+        }
+        assert_eq!(
+            Error::UnsupportedVersion((1, 9)).to_string(),
+            "saves from HotA 1.9 are not supported"
+        );
+    }
+
+    #[test]
+    fn data_ending_inside_the_version_is_truncated() {
+        let data = empty_save(100, 1, 8);
+        for len in [6, 16, 20, 23] {
+            assert!(
+                matches!(Format::of(&data[..len]), Err(Error::Truncated { .. })),
+                "length {len}"
+            );
+        }
+    }
+
+    #[test]
+    fn formats_differ_by_one_skill_slot_per_hero() {
+        let [v17, v18] = Format::ALL;
+        assert_eq!(v18.skill_count, v17.skill_count + 1);
+        assert_eq!(v18.hero_record_size, v17.hero_record_size + 1);
+        assert_eq!(v18.skill_count, crate::skills::SKILL_COUNT);
+        // 17 heroes came with Bulwark, two bytes each between the heroes and the date.
+        assert_eq!(v18.date_offset, v17.date_offset + 2 * 17);
     }
 }

@@ -12,10 +12,13 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use common::{Decompressed, data_dir};
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use h3save::hero::HERO_RECORD_SIZE;
-use h3save::savefile::{Error, HEADER_NORMAL, Layout, MAX_DECOMPRESSED_SIZE, decompress};
+use h3save::savefile::{Error, Format, HEADER_NORMAL, Layout, MAX_DECOMPRESSED_SIZE, decompress};
 use h3save::town::MAX_TOWNS;
 use h3save::{Date, SaveFile, date};
+
+/// The samples are HotA 1.8 saves.
+const HERO_RECORD_SIZE: usize = Format::HOTA_1_8.hero_record_size;
+const DATE_OFFSET: usize = Format::HOTA_1_8.date_offset;
 
 /// xorshift64*: a small, fixed-seed generator, so failures reproduce.
 struct Rng(u64);
@@ -65,6 +68,7 @@ impl Sample {
             data,
             layout,
             hero_count,
+            ..
         } = decompressed;
         let save = SaveFile::parse(&data).unwrap();
         let mut towns = Vec::new();
@@ -79,7 +83,7 @@ impl Sample {
             data,
             layout,
             hero_count,
-            end: heroes_end + date::OFFSET_AFTER_HEROES + date::SIZE,
+            end: heroes_end + DATE_OFFSET + date::SIZE,
             towns,
         }
     }

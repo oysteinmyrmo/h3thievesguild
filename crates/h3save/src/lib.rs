@@ -1,6 +1,6 @@
 //! Parser for Heroes of Might and Magic III: Horn of the Abyss save files.
 //!
-//! Supports HotA 1.8 saves. The player, town and hero records are found by the shape of
+//! Supports HotA 1.7 and 1.8 saves. The player, town and hero records are found by the shape of
 //! their data, so maps with renamed heroes and towns read the same as any other; see
 //! [`savefile`] for how.
 //!
@@ -49,7 +49,7 @@ pub use creatures::Creature;
 pub use date::Date;
 pub use hero::{Hero, Orientation};
 pub use player::{Color, ColorRgb, Player, PlayerData};
-pub use savefile::{Error, Layout, MapSize, SaveFile};
+pub use savefile::{Error, Format, Layout, MapSize, SaveFile};
 pub use skills::{Skill, SkillLevel, SkillSlot, SkillSlots};
 pub use spells::Spell;
 pub use town::{Town, TownType};
