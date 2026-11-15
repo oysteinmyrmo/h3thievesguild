@@ -1,10 +1,9 @@
 // Ported from the homm3tools C++ test test-spell-points.cpp. Expected values are unchanged.
 
-#[macro_use]
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
+use common::{assert_creature, assert_date, data_dir, find_hero, find_town, open};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -15,28 +14,26 @@ use h3save::{
 
 #[test]
 fn spell_points_day1() {
-    let _guard = common::Guard::new("spell-points-day1");
     let save = open(&data_dir("spell_points").join("[hotseat] 111.GM2"));
-    test_date(&save, 1, 1, 1);
-    require!(save.valid());
+    assert_date(&save, 1, 1, 1);
+    assert!(save.valid());
 
     let hero = find_hero(&save, "Sephinroth");
-    require_eq!(hero.spell_points, 360);
+    assert_eq!(hero.spell_points, 360);
 
     let hero = find_hero(&save, "Sorsha");
-    require_eq!(hero.spell_points, 10);
+    assert_eq!(hero.spell_points, 10);
 }
 
 #[test]
 fn spell_points_day2() {
-    let _guard = common::Guard::new("spell-points-day2");
     let save = open(&data_dir("spell_points").join("[hotseat] 112.GM2"));
-    test_date(&save, 1, 1, 2);
-    require!(save.valid());
+    assert_date(&save, 1, 1, 2);
+    assert!(save.valid());
 
     let hero = find_hero(&save, "Sephinroth");
-    require_eq!(hero.spell_points, 344);
+    assert_eq!(hero.spell_points, 344);
 
     let hero = find_hero(&save, "Sorsha");
-    require_eq!(hero.spell_points, 4);
+    assert_eq!(hero.spell_points, 4);
 }

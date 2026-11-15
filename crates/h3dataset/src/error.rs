@@ -5,6 +5,11 @@ use std::fmt;
 use serde::Serialize;
 
 /// A file that could not be read as a save.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct UnreadableFile {
     pub file: String,
@@ -12,6 +17,11 @@ pub struct UnreadableFile {
 }
 
 /// The files of one game, when saves from several games were mixed.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameFiles {
@@ -22,6 +32,11 @@ pub struct GameFiles {
 }
 
 /// Files saved on the same in-game day.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct DayFiles {
     /// The day, such as "Month 1, Week 2, Day 3".
@@ -31,6 +46,11 @@ pub struct DayFiles {
 
 /// Why the saves do not make a data set. Each variant lists every file involved, sorted, so the
 /// user can see what to fix.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", content = "details", rename_all = "camelCase")]
 pub enum DatasetError {

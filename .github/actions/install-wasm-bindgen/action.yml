@@ -1,0 +1,14 @@
+name: Install wasm-bindgen
+description: Installs the wasm-bindgen command-line tool at the version of the wasm-bindgen crate in Cargo.lock, which it must match.
+runs:
+  using: composite
+  steps:
+    - name: Find the wasm-bindgen version
+      id: version
+      shell: bash
+      run: echo "version=$(cargo pkgid -p wasm-bindgen | sed 's/.*@//')" >> "$GITHUB_OUTPUT"
+    - name: Install wasm-bindgen
+      uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-bindgen@${{ steps.version.outputs.version }}
+        fallback: none

@@ -1,78 +1,37 @@
-//! Shared helpers for the integration tests.
-//!
-//! The tests started as a one-to-one port of the homm3tools C++ tests. `require!` and
-//! `require_eq!` stand in for Catch2's `REQUIRE` and count every check, so the number of
-//! checks run can be compared with the C++ suite (16,125). Checks added since, such as
-//! [`test_date`], come on top of that.
+//! Helpers shared by the integration tests.
 
+// Each test file uses only some of the helpers.
 #![allow(dead_code)]
 
-use std::cell::Cell;
 use std::path::{Path, PathBuf};
 
 use h3save::creatures::MAX_STACKS;
+use h3save::savefile::{Layout, decompress_file};
 use h3save::{Creature, Hero, SaveFile, Town};
 
-thread_local! {
-    static CHECKS: Cell<usize> = const { Cell::new(0) };
-}
-
-/// Count one check. Used by the `require!` macros.
-pub fn count_check() {
-    CHECKS.with(|c| c.set(c.get() + 1));
-}
-
-/// Prints the number of checks a test ran when it ends, for comparison with the C++ suite.
-/// Run with `cargo test -- --nocapture --test-threads=1` to see the counts.
-pub struct Guard {
-    name: &'static str,
-}
-
-impl Guard {
-    pub fn new(name: &'static str) -> Self {
-        CHECKS.with(|c| c.set(0));
-        Guard { name }
-    }
-}
-
-impl Drop for Guard {
-    fn drop(&mut self) {
-        if !std::thread::panicking() {
-            let n = CHECKS.with(Cell::get);
-            println!("checks {} {n}", self.name);
-        }
-    }
-}
-
-/// Catch2's `REQUIRE(expr)`.
-#[macro_export]
-macro_rules! require {
-    ($cond:expr) => {{
-        $crate::common::count_check();
-        assert!($cond, "REQUIRE({}) failed", stringify!($cond));
-    }};
-}
-
-/// Catch2's `REQUIRE(left == right)`, printing both values on failure.
-#[macro_export]
-macro_rules! require_eq {
-    ($left:expr, $right:expr) => {{
-        $crate::common::count_check();
-        assert_eq!(
-            $left,
-            $right,
-            "REQUIRE({} == {}) failed",
-            stringify!($left),
-            stringify!($right)
-        );
-    }};
-}
-
-/// The test data folder for one group of tests.
-pub fn data_dir(group: &str) -> PathBuf {
+/// A folder, or a file, under `test_data`.
+pub fn data_dir(path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../test_data")
-        .join(group)
+        .join(path)
+}
+
+/// Every save file under `test_data`, sorted.
+pub fn all_saves() -> Vec<PathBuf> {
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e.to_string_lossy().starts_with("GM")) {
+                out.push(path);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&data_dir(""), &mut out);
+    out.sort();
+    out
 }
 
 /// Read a save, failing the test with the path and error if it cannot be read.
@@ -80,13 +39,37 @@ pub fn open(path: &Path) -> SaveFile {
     SaveFile::read(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
-/// `SaveFile::findHero`. The C++ version returns a default hero when not found; every test
-/// looks up a hero that exists, so here a missing hero fails the test.
+/// A save's decompressed data and where its blocks are.
+pub struct Decompressed {
+    pub data: Vec<u8>,
+    pub layout: Layout,
+    pub hero_count: usize,
+}
+
+impl Decompressed {
+    pub fn read(path: &Path) -> Decompressed {
+        let data = decompress_file(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let hero_count = usize::try_from(u32::from_le_bytes(data[80..84].try_into().unwrap())).unwrap();
+        let layout = Layout::find(&data, hero_count).unwrap();
+        Decompressed {
+            data,
+            layout,
+            hero_count,
+        }
+    }
+
+    /// One past the hero array.
+    pub fn heroes_end(&self) -> usize {
+        self.layout.heroes + self.hero_count * h3save::hero::HERO_RECORD_SIZE
+    }
+}
+
+/// The hero with this name, failing the test if there is none.
 pub fn find_hero<'a>(save: &'a SaveFile, name: &str) -> &'a Hero {
     save.find_hero(name).unwrap_or_else(|| panic!("hero {name} not found"))
 }
 
-/// `SaveFile::findTown`, failing the test when the town is missing.
+/// The town with this name, failing the test if there is none.
 pub fn find_town<'a>(save: &'a SaveFile, name: &str) -> &'a Town {
     save.find_town(name).unwrap_or_else(|| panic!("town {name} not found"))
 }
@@ -115,15 +98,19 @@ impl Army for Town {
     }
 }
 
-/// `test_creature` from the C++ tests: check one stack of an army.
-pub fn test_creature(item: &impl Army, idx: usize, creature: Creature, count: u32) {
-    require_eq!(item.creatures()[idx], creature);
-    require_eq!(item.creature_count()[idx], count);
+/// Check one stack of an army.
+#[track_caller]
+pub fn assert_creature(item: &impl Army, idx: usize, creature: Creature, count: u32) {
+    assert_eq!(item.creatures()[idx], creature, "creature in slot {idx}");
+    assert_eq!(item.creature_count()[idx], count, "count in slot {idx}");
 }
 
-/// Check the in-game date of a save: three checks.
-pub fn test_date(save: &SaveFile, month: u16, week: u16, day: u16) {
-    require_eq!(save.date.month(), month);
-    require_eq!(save.date.week(), week);
-    require_eq!(save.date.day(), day);
+/// Check the in-game date of a save.
+#[track_caller]
+pub fn assert_date(save: &SaveFile, month: u16, week: u16, day: u16) {
+    assert_eq!(
+        (save.date.month(), save.date.week(), save.date.day()),
+        (month, week, day),
+        "date"
+    );
 }

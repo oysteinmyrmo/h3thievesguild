@@ -4,9 +4,9 @@
     import MissingDaysDialog from "./MissingDaysDialog.svelte";
     import StatChart from "./StatChart.svelte";
     import { game } from "../lib/game.svelte";
-    import { loadSaves, readFiles } from "../lib/loader";
+    import { loadSaves, readFiles } from "../lib/load";
     import { router } from "../lib/router.svelte";
-    import type { Dataset } from "../lib/types";
+    import type { Dataset } from "../lib/wasm/pkg/h3wasm";
 
     let { stat }: { stat?: string } = $props();
 

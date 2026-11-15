@@ -1,5 +1,6 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import { parseRoute, routeHash } from "../../src/lib/route";
+import { parseRoute, routeHash } from "../../src/lib/router.svelte";
 
 describe("routes", () => {
     it.each([

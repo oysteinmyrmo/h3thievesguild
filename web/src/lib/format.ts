@@ -1,6 +1,6 @@
 // Text shown for numbers and dates.
 
-import type { Dataset, Day } from "./types";
+import type { Dataset, Day } from "./wasm/pkg/h3wasm";
 
 const whole = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const short = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });

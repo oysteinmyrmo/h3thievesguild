@@ -42,13 +42,8 @@ that turns a game's saves into series for plotting.
 cargo test
 ```
 
-The 68 save tests started as a one-to-one port of the homm3tools Catch2 tests, with the same expected
-values. Each runs every check of its C++ original (16,125 in total) plus checks added since, such as
-the save's date. To see the count per test:
-
-```sh
-cargo test -- --nocapture --test-threads=1
-```
+The save tests in `crates/h3save/tests` started as a port of the homm3tools Catch2 tests, with the
+same expected values, and have grown since. `tests/common` has the helpers they share.
 
 ### WebAssembly
 

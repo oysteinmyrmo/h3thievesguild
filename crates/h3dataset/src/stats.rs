@@ -5,6 +5,11 @@ use h3save::{Hero, SaveFile};
 use serde::Serialize;
 
 /// Describes one statistic, so the frontend can list and label it.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatInfo {

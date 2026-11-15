@@ -9,6 +9,12 @@ publish.workspace = true
 [dependencies]
 h3save = { path = "../h3save" }
 serde = { version = "1", features = ["derive"] }
+tsify = { version = "0.5", default-features = false, features = ["js"], optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+
+[features]
+# TypeScript types of the data set and errors, for the WebAssembly bindings.
+typescript = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dev-dependencies]
 serde_json = "1"

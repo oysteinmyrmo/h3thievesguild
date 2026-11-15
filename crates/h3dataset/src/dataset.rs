@@ -17,6 +17,11 @@ use crate::stats::{HERO_STATS, PLAYER_STATS, StatInfo};
 ///
 /// Every `values` row has one entry per day in [`Dataset::days`], `null` where the player or
 /// hero was not in the game that day.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Dataset {
@@ -41,6 +46,11 @@ pub struct Dataset {
 }
 
 /// The map the game is played on.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapInfo {
@@ -54,6 +64,11 @@ pub struct MapInfo {
 }
 
 /// One day with a save.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Day {
@@ -70,6 +85,11 @@ pub struct Day {
 }
 
 /// A run of consecutive days, such as days without a save.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DayRange {
@@ -83,6 +103,11 @@ pub struct DayRange {
 }
 
 /// A player's statistics over the game.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerSeries {
@@ -99,6 +124,11 @@ pub struct PlayerSeries {
 }
 
 /// A hero's statistics over the game.
+#[cfg_attr(
+    feature = "typescript",
+    derive(tsify::Tsify),
+    tsify(missing_as_null, hashmap_as_object)
+)]
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeroSeries {

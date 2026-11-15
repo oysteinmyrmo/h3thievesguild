@@ -3,7 +3,7 @@
     import { daySpan, missingDaysText } from "../lib/format";
     import { displayName } from "../lib/names";
     import NamePlayersDialog from "./NamePlayersDialog.svelte";
-    import type { Dataset } from "../lib/types";
+    import type { Dataset } from "../lib/wasm/pkg/h3wasm";
 
     let { dataset }: { dataset: Dataset } = $props();
 

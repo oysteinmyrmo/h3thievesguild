@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDataset, toLoadError } from "../../src/lib/parse";
+import { buildDataset, toLoadError } from "../../src/lib/load";
 import { RESOURCES, dataset, initWasm, save } from "./saves";
 
 describe("buildDataset with the WebAssembly parser", () => {
@@ -26,27 +26,32 @@ describe("buildDataset with the WebAssembly parser", () => {
         ["mixed games", [save("resources", "[hotseat] 111.GM8"), save("towns", "[hotseat] 111.GM2")], "mixedGames"],
         ["unreadable files", [{ name: "notes.txt", bytes: new TextEncoder().encode("hello") }], "unreadable"],
         ["no files", [], "noSaves"],
-    ] as const)("reports %s as an error with its kind", (_, inputs, kind) => {
+    ] as const)("reports %s as an error with its kind and a message naming the files", (_, inputs, kind) => {
         initWasm();
         const result = buildDataset([...inputs]);
         expect(result.ok).toBe(false);
         if (!result.ok) {
             expect(result.error.kind).toBe(kind);
+            for (const input of inputs) {
+                expect(result.error.message).toContain(input.name);
+            }
             expect(result.error.message.length).toBeGreaterThan(0);
         }
     });
 });
 
 describe("toLoadError", () => {
-    it("keeps the kind, message and details of a DatasetError", () => {
+    it("keeps the kind and message of a DatasetError", () => {
         const error = Object.assign(new Error("two saves"), { name: "DatasetError", kind: "duplicateDays", details: [1] });
-        expect(toLoadError(error)).toEqual({ kind: "duplicateDays", message: "two saves", details: [1] });
+        expect(toLoadError(error)).toEqual({ kind: "duplicateDays", message: "two saves" });
     });
 
     it("treats anything else as unexpected", () => {
         expect(toLoadError(new TypeError("boom"))).toEqual({ kind: "unexpected", message: "boom" });
         expect(toLoadError("text")).toEqual({ kind: "unexpected", message: "text" });
-        const unknownKind = Object.assign(new Error("odd"), { name: "DatasetError", kind: "other" });
-        expect(toLoadError(unknownKind).kind).toBe("unexpected");
+        const kindless = Object.assign(new Error("odd"), { name: "DatasetError" });
+        expect(toLoadError(kindless).kind).toBe("unexpected");
+        const notDatasetError = Object.assign(new Error("odd"), { kind: "duplicateDays" });
+        expect(toLoadError(notDatasetError).kind).toBe("unexpected");
     });
 });
