@@ -25,10 +25,10 @@ fn all_saves() -> Vec<PathBuf> {
 }
 
 /// The date an autosave's name gives: `[hotseat] MWD.GMn`, or `[hotseat] MWD.xx.GMn`.
-/// The `start` saves and the Bulwark save were saved on the first day.
+/// The `start` saves and the Bulwark and Factory saves were saved on the first day.
 fn date_from_name(path: &Path) -> Date {
     let name = path.file_name().unwrap().to_str().unwrap();
-    if name.starts_with("start.") || name == "test-bulwark.GM2" {
+    if name.starts_with("start.") || name == "test-bulwark.GM2" || name == "test-factory.GM3" {
         return Date::FIRST;
     }
     let digits: Vec<u16> = name
@@ -59,7 +59,7 @@ fn sample() -> PathBuf {
 #[test]
 fn every_test_save_has_the_date_its_autosave_name_gives() {
     let saves = all_saves();
-    assert_eq!(saves.len(), 69);
+    assert_eq!(saves.len(), 70);
     for path in saves {
         let save = SaveFile::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         assert_eq!(save.date, date_from_name(&path), "{}", path.display());

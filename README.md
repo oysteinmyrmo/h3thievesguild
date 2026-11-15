@@ -21,10 +21,9 @@ that turns a game's saves into series for plotting.
   different games, or two saves from the same day, are reported as errors naming the files.
   Days without a save stay on the x-axis with empty values, and come with a warning to show
   the user before going on.
-- Bulwark (HotA 1.8): its creatures and their AI values, town names and the Runes skill.
-- Creature, artifact and town name tables do not yet include the Factory additions. Unknown
-  IDs are kept as raw values (for example `Creature(172)`); unknown creatures count as 0
-  towards army strength.
+- Factory and Bulwark: their creatures and AI values, town names, and Bulwark's Runes skill.
+- Artifact tables do not yet include the Factory and Bulwark additions. Unknown IDs are kept as
+  raw values (for example `Artifact(200)`); unknown creatures count as 0 towards army strength.
 
 ## Layout
 

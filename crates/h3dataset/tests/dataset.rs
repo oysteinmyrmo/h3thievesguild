@@ -293,6 +293,7 @@ fn every_test_folder_of_one_game_gives_a_consistent_data_set() {
     let folders = [
         "artifacts",
         "bulwark",
+        "factory",
         "creatures",
         "experience",
         "hero_town",

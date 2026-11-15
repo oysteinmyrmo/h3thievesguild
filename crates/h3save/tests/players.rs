@@ -50,7 +50,7 @@ fn town_names(save: &SaveFile, color: Color) -> Vec<&str> {
 #[test]
 fn player_records_agree_with_the_hero_and_town_records_in_every_save() {
     let saves = all_saves();
-    assert_eq!(saves.len(), 69);
+    assert_eq!(saves.len(), 70);
     for path in saves {
         let save = open(&path);
         let what = path.display();
