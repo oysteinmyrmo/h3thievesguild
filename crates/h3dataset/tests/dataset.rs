@@ -87,23 +87,34 @@ fn check_shape(dataset: &Dataset) {
             player_stats
         );
         assert!(p.values.values().all(|row| row.len() == days));
-        // In the game on the same days for every statistic, and on at least one day. Days without
-        // a save have no values.
-        let alive: Vec<bool> = p.values["gold"].iter().map(Option::is_some).collect();
-        assert!(alive.iter().zip(&has_save).all(|(&a, &s)| s || !a));
-        assert!(alive.contains(&true));
+        // Values on the same days for every statistic, and on at least one day. Days without a
+        // save have no values.
+        let valued: Vec<bool> = p.values["gold"].iter().map(Option::is_some).collect();
+        assert!(valued.iter().zip(&has_save).all(|(&a, &s)| s || !a));
+        assert!(valued.contains(&true));
         assert!(
             p.values
                 .values()
-                .all(|row| row.iter().map(Option::is_some).eq(alive.iter().copied()))
+                .all(|row| row.iter().map(Option::is_some).eq(valued.iter().copied()))
         );
         // Eliminated on the first day with a save where the player is out of the game, after
-        // being in it.
-        let first_in = alive.iter().position(|&a| a).unwrap();
-        let first_out = (first_in..days)
-            .find(|&i| has_save[i] && !alive[i])
-            .map(|i| dataset.days[i].day);
-        assert_eq!(p.eliminated_day, first_out);
+        // being in it. That day every statistic is 0; on the saved days before it from the
+        // first one in the game there are values, and after it there are none.
+        let first_in = valued.iter().position(|&a| a).unwrap();
+        let out = p
+            .eliminated_day
+            .map(|day| dataset.days.iter().position(|d| d.day == day).unwrap());
+        let in_game_until = out.unwrap_or(days);
+        assert!((first_in..in_game_until).all(|i| !has_save[i] || valued[i]), "{}", p.id);
+        if let Some(out) = out {
+            assert!(out > first_in && has_save[out], "{}", p.id);
+            assert!(p.values.values().all(|row| row[out] == Some(0.0)), "{}", p.id);
+            assert!(
+                p.values.values().all(|row| row[out + 1..].iter().all(Option::is_none)),
+                "{}",
+                p.id
+            );
+        }
         assert!(p.color.len() == 7 && p.color.starts_with('#'));
     }
     for hero in &dataset.heroes {
@@ -185,10 +196,11 @@ fn resources_of_every_player_by_day() {
     let stats = ["wood", "mercury", "ore", "sulfur", "crystal", "gems", "gold"];
     for (id, day1, day2, day3) in table {
         for (i, stat) in stats.iter().enumerate() {
+            // Out on day 3: every value is 0 that day.
             let expected = vec![
                 Some(f64::from(day1[i])),
                 Some(f64::from(day2[i])),
-                day3.map(|d| f64::from(d[i])),
+                Some(day3.map_or(0.0, |d| f64::from(d[i]))),
             ];
             assert_eq!(values(&dataset, id, stat), expected, "{id} {stat}");
         }
@@ -529,7 +541,7 @@ fn json_has_the_shape_the_frontend_expects() {
     assert_eq!(blue["name"], "Blue");
     assert_eq!(blue["color"], "#3050f8");
     assert_eq!(blue["eliminatedDay"], 3);
-    assert_eq!(blue["values"]["gold"], json!([6700.0, null]));
+    assert_eq!(blue["values"]["gold"], json!([6700.0, 0.0]));
     let red = json["players"]
         .as_array()
         .unwrap()
@@ -702,7 +714,11 @@ fn elimination_is_the_first_saved_day_out_of_the_game() {
     for id in ["blue", "tan", "orange"] {
         assert_eq!(player(&dataset, id).eliminated_day, Some(3), "{id}");
     }
-    assert_eq!(values(&dataset, "blue", "gold"), [Some(3400.0), None, None]);
+    // Every value is 0 on the day of the elimination.
+    assert_eq!(values(&dataset, "blue", "gold"), [Some(3400.0), None, Some(0.0)]);
+    for row in player(&dataset, "tan").values.values() {
+        assert_eq!(row[2], Some(0.0));
+    }
     assert_eq!(values(&dataset, "red", "gold"), [Some(2500.0), None, Some(10_700.0)]);
 }
 

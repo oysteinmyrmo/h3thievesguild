@@ -39,9 +39,9 @@ describe("statChartOption", () => {
         ]);
     });
 
-    it("leaves gaps where a player is out of the game and marks the elimination", () => {
+    it("drops a player to 0 on the day they are out of the game and marks the elimination", () => {
         const lines = series(statChartOption(full, "gold", detail));
-        expect(lines.find((s) => s.id === "blue")!.data).toEqual([3400, 6700, null]);
+        expect(lines.find((s) => s.id === "blue")!.data).toEqual([3400, 6700, 0]);
         // Blue, tan and orange are out on day 3: one line, naming all three.
         const eliminated = lines.find((s) => s.name === ELIMINATED_SERIES)!;
         expect(eliminated.markLine?.data.map((d) => [d.xAxis, d.label.formatter()])).toEqual([["1-1-3", "Blue, Tan, Orange out"]]);
@@ -118,12 +118,15 @@ describe("tooltipHtml", () => {
         expect(html).toContain("Month 1, Week 1, Day 3");
         expect(html).toContain("[hotseat] 113.GM5");
         expect(html).toContain("Red: <strong>10,700</strong>");
-        expect(html).toContain("Blue: <strong>—</strong>");
+        // Out of the game that day.
+        expect(html).toContain("Blue: <strong>0</strong>");
     });
 
     it("says when a day has no save", () => {
         const gap = dataset([RESOURCES[0]!, RESOURCES[2]!]);
-        expect(tooltipHtml(gap, "gold", 1, gap.players)).toContain("No save for this day");
+        const html = tooltipHtml(gap, "gold", 1, gap.players);
+        expect(html).toContain("No save for this day");
+        expect(html).toContain("Red: <strong>—</strong>");
     });
 
     it("shows players' names, escaped", () => {

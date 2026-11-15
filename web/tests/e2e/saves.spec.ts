@@ -40,10 +40,11 @@ test("loading a game shows the map, the players and a chart per statistic", asyn
     // One card per player statistic, each with a drawn chart.
     await expect(page.locator("[data-testid^=card-]")).toHaveCount(14);
     await expect(page.getByTestId("card-gold").locator("canvas").first()).toBeVisible();
-    // The values, as the table behind each chart: blue's gold from info.txt, gone on day 3.
+    // The values, as the table behind each chart: blue's gold from info.txt, 0 on day 3 when
+    // blue is out of the game.
     const gold = page.getByTestId("table-gold").first();
     await expect(gold.locator("tbody tr").nth(0)).toContainText("3,400");
-    await expect(gold.locator("tbody tr").nth(2).locator("td").nth(1)).toHaveText("—");
+    await expect(gold.locator("tbody tr").nth(2).locator("td").nth(1)).toHaveText("0");
 });
 
 test("a chart opens in a full-page view and Back returns to the grid", async ({ page }) => {

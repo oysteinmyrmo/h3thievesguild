@@ -9,7 +9,8 @@ describe("buildDataset with the WebAssembly parser", () => {
         expect(d.players).toHaveLength(8);
         const blue = d.players.find((p) => p.id === "blue")!;
         // From the resources test folder's info.txt; blue is vanquished on day 3.
-        expect(blue.values.gold).toEqual([3400, 6700, null]);
+        // Out of the game on day 3, so 0 that day.
+        expect(blue.values.gold).toEqual([3400, 6700, 0]);
         expect(blue.eliminatedDay).toBe(3);
         expect(d.missingDaysWarning).toBeNull();
     });
