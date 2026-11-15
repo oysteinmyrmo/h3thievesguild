@@ -93,7 +93,7 @@ WebAssembly in a Web Worker. Choose the save files of one game and it charts eac
 statistics day by day. The last game is remembered in the browser until cleared.
 
 You need Rust with the `wasm32-unknown-unknown` target, the `wasm-bindgen` command-line tool at the
-version of the `wasm-bindgen` crate in `Cargo.lock`, and Node.js 22 or later:
+version of the `wasm-bindgen` crate in `Cargo.lock`, and Node.js 22.12 or later:
 
 ```sh
 rustup target add wasm32-unknown-unknown
