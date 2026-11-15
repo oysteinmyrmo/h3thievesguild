@@ -33,6 +33,7 @@ that turns a game's saves into series for plotting.
 | `crates/h3save/tests` | Integration tests: one file per homm3tools C++ test file, plus tests added since. |
 | `crates/h3dataset` | Builds the per-day data set for plotting from a game's saves. |
 | `crates/h3wasm` | WebAssembly bindings for the browser, with TypeScript types for the data set. |
+| `web` | The web frontend. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools. Each folder's `info.txt` describes what was done in game. |
 
 ## Tests
@@ -89,6 +90,35 @@ if (dataset.missingDaysWarning && !confirm(dataset.missingDaysWarning)) {
 Save files come from users, so the parser must not panic on any input. The library denies the
 Clippy lints for indexing, slicing, unwrapping and unchecked arithmetic, and
 `crates/h3save/tests/robustness.rs` feeds it truncated, damaged and random saves.
+
+## Web frontend
+
+The `web` folder is the site: Svelte, TypeScript and ECharts, with the parser running as
+WebAssembly in a Web Worker. Choose the save files of one game and it charts each player's
+statistics day by day. The last game is remembered in the browser until cleared.
+
+You need Rust with the `wasm32-unknown-unknown` target, the `wasm-bindgen` command-line tool at the
+version of the `wasm-bindgen` crate in `Cargo.lock`, and Node.js 22 or later:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version <version from Cargo.lock>
+cd web
+npm ci
+```
+
+Then, from `web`:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Builds the WebAssembly module and starts a local server at <http://localhost:5173>, reloading on changes. |
+| `npm run build` | Builds the site into `web/dist`: static files to host anywhere. |
+| `npm run preview` | Serves `web/dist` at <http://localhost:4173>. |
+| `npm run check` | Type checks the TypeScript and Svelte code. |
+| `npm test` | Unit tests, including the real parser on saves from `test_data`. |
+| `npm run test:e2e` | Browser tests in Chromium, Firefox and WebKit. Run `npx playwright install --with-deps` once first. |
+
+The WebAssembly module is rebuilt before `dev`, `build`, `check` and the tests.
 
 ## Usage
 
