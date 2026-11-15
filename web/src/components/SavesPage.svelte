@@ -5,6 +5,7 @@
     import StatChart from "./StatChart.svelte";
     import { game } from "../lib/game.svelte";
     import { loadSaves, readFiles } from "../lib/load";
+    import { X_AXIS_MODES, type XAxisMode } from "../lib/options";
     import { router } from "../lib/router.svelte";
     import type { Dataset } from "../lib/wasm/pkg/h3wasm";
 
@@ -43,8 +44,31 @@
         pending = undefined;
     }
 
-    const detail = $derived(game.dataset && stat ? game.dataset.playerStats.find((s) => s.id === stat) : undefined);
+    const stats = $derived(game.dataset?.playerStats ?? []);
+    const detailIndex = $derived(stats.findIndex((s) => s.id === stat));
+    const detail = $derived(stats[detailIndex]);
+    // The charts before and after this one, wrapping around at the ends.
+    const previous = $derived(stats[(detailIndex - 1 + stats.length) % stats.length]);
+    const next = $derived(stats[(detailIndex + 1) % stats.length]);
+
+    /** The left and right arrow keys step through the charts, unless typing or in a dialog. */
+    function step(event: KeyboardEvent) {
+        if (!detail || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+            return;
+        }
+        const target = event.target as HTMLElement | null;
+        if (target?.closest("input, select, textarea, dialog")) {
+            return;
+        }
+        const to = event.key === "ArrowLeft" ? previous : event.key === "ArrowRight" ? next : undefined;
+        if (to) {
+            event.preventDefault();
+            router.go({ page: "saves", stat: to.id });
+        }
+    }
 </script>
+
+<svelte:window onkeydown={step} />
 
 <div class="toolbar">
     <h1>Save games</h1>
@@ -87,9 +111,43 @@
             <div class="detail-bar">
                 <a class="button" href="#/saves">← All charts</a>
                 <h2>{detail.name}</h2>
+                {#if previous && next}
+                    <nav class="stepper" aria-label="Other charts">
+                        <a class="button" href={`#/saves/${previous.id}`} title={previous.name} data-testid="previous-chart">
+                            ← Previous chart
+                        </a>
+                        <a class="button" href={`#/saves/${next.id}`} title={next.name} data-testid="next-chart">
+                            Next chart →
+                        </a>
+                    </nav>
+                {/if}
             </div>
-            <div class="detail-chart">
-                <StatChart dataset={game.dataset} stat={detail} hidden={game.hidden} names={game.names} compact={false} />
+            <div class="detail-body">
+                <div class="detail-chart">
+                    <StatChart
+                        dataset={game.dataset}
+                        stat={detail}
+                        hidden={game.hidden}
+                        names={game.names}
+                        compact={false}
+                        xAxis={game.options.xAxis}
+                    />
+                </div>
+                <aside class="options" aria-label="Chart options">
+                    <h3>Display</h3>
+                    <label>
+                        X-axis
+                        <select
+                            data-testid="x-axis"
+                            value={game.options.xAxis}
+                            onchange={(e) => game.setOptions({ xAxis: e.currentTarget.value as XAxisMode })}
+                        >
+                            {#each X_AXIS_MODES as mode (mode.value)}
+                                <option value={mode.value}>{mode.label}</option>
+                            {/each}
+                        </select>
+                    </label>
+                </aside>
             </div>
         </section>
     {:else}
@@ -99,7 +157,14 @@
                     <h3>{info.name}</h3>
                     <span class="group">{info.group}</span>
                     <div class="card-chart">
-                        <StatChart dataset={game.dataset} stat={info} hidden={game.hidden} names={game.names} compact={true} />
+                        <StatChart
+                            dataset={game.dataset}
+                            stat={info}
+                            hidden={game.hidden}
+                            names={game.names}
+                            compact={true}
+                            xAxis={game.options.xAxis}
+                        />
                     </div>
                 </a>
             {/each}
@@ -201,8 +266,48 @@
         text-decoration: none;
     }
 
+    .stepper {
+        display: flex;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .detail-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px;
+        gap: 16px;
+        margin-top: 8px;
+    }
+
     .detail-chart {
         height: min(70vh, 640px);
-        margin-top: 8px;
+    }
+
+    .options {
+        border-left: 1px solid var(--border);
+        padding-left: 16px;
+    }
+
+    .options h3 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-muted);
+    }
+
+    .options label {
+        display: grid;
+        gap: 4px;
+        font-size: 13px;
+    }
+
+    .options select {
+        font: inherit;
+        padding: 5px 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
     }
 </style>

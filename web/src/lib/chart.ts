@@ -1,7 +1,8 @@
 // ECharts options for a player statistic: one line per player in the player's colour.
 
-import { escapeHtml, formatAxis, formatValue, longDate } from "./format";
+import { axisLabel, escapeHtml, formatAxis, formatValue, longDate } from "./format";
 import { displayName, type PlayerNames } from "./names";
+import type { XAxisMode } from "./options";
 import type { ChartTheme } from "./theme.svelte";
 import type { Dataset, PlayerSeries } from "./wasm/pkg/h3wasm";
 
@@ -13,6 +14,8 @@ export interface ChartSettings {
     /** Names the user gave the players. */
     names: PlayerNames;
     theme: ChartTheme;
+    /** What the x-axis shows for each day. */
+    xAxis: XAxisMode;
 }
 
 /** Name of the series that shades days without a save. Not a player. */
@@ -43,7 +46,8 @@ export function tooltipHtml(
         return "";
     }
     const source = day.file === null ? "No save for this day" : escapeHtml(day.file);
-    const header = `<strong>${escapeHtml(longDate(day))}</strong><br><span class="tooltip-file">${source}</span>`;
+    const date = `Day ${day.day}: ${longDate(day)}`;
+    const header = `<strong>${escapeHtml(date)}</strong><br><span class="tooltip-file">${source}</span>`;
     const rows = players.map((p) => {
         const value = formatValue(playerValues(dataset, p, statId)[dayIndex]);
         const marker = `<span class="tooltip-marker" style="background:${escapeHtml(p.color)}"></span>`;
@@ -52,22 +56,33 @@ export function tooltipHtml(
     return [header, ...rows].join("<br>");
 }
 
-function labelOfDay(dataset: Dataset, dayNumber: number): string | undefined {
-    return dataset.days.find((d) => d.day === dayNumber)?.label;
+function labelOfDay(dataset: Dataset, dayNumber: number, mode: XAxisMode): string | undefined {
+    const day = dataset.days.find((d) => d.day === dayNumber);
+    return day && axisLabel(day, mode);
 }
 
-/** One dashed line per elimination day, labelled with every player out that day. */
+/** Height of one elimination label, to stack the labels of players out on nearby days. */
+const ELIMINATION_LABEL_HEIGHT = 16;
+
+/** Labels of eliminations closer than this share of the days are stacked, as they would touch. */
+const NEARBY_SHARE = 0.08;
+
+/** One dashed line per eliminated player, in the player's colour, labelled with the name. */
 function eliminationSeries(dataset: Dataset, players: PlayerSeries[], settings: ChartSettings) {
-    const byDay = new Map<string, string[]>();
+    const lines: { label: string; index: number; player: PlayerSeries }[] = [];
     for (const player of players) {
-        const label = player.eliminatedDay === null ? undefined : labelOfDay(dataset, player.eliminatedDay);
-        if (label !== undefined) {
-            byDay.set(label, [...(byDay.get(label) ?? []), displayName(player, settings.names)]);
+        const index = dataset.days.findIndex((d) => d.day === player.eliminatedDay);
+        const day = dataset.days[index];
+        if (day) {
+            lines.push({ label: axisLabel(day, settings.xAxis), index, player });
         }
     }
-    if (byDay.size === 0) {
+    if (lines.length === 0) {
         return undefined;
     }
+    const nearby = Math.round(NEARBY_SHARE * (dataset.days.length - 1));
+    const nearbyBefore = (i: number) =>
+        lines.slice(0, i).filter((l) => Math.abs(l.index - lines[i]!.index) <= nearby).length;
     return {
         name: ELIMINATED_SERIES,
         type: "line",
@@ -77,16 +92,31 @@ function eliminationSeries(dataset: Dataset, players: PlayerSeries[], settings: 
         markLine: {
             silent: true,
             symbol: ["none", "none"],
-            lineStyle: { color: settings.theme.muted, type: "dashed", width: 1.5 },
-            label: { show: !settings.compact, color: settings.theme.text, position: "end" },
+            lineStyle: { type: "dashed", width: 1.5 },
+            label: {
+                show: !settings.compact,
+                position: "end",
+                // A halo in the background colour keeps the label readable over the lines.
+                textBorderColor: settings.theme.tooltipBackground,
+                textBorderWidth: 3,
+            },
             // A function, not a string: ECharts reads {braces} in string formatters as templates,
             // and a player's name may contain any character.
             // The label runs towards the middle of the chart, so it is not cut off at an edge.
-            data: [...byDay].map(([label, names]) => {
-                const text = `${names.join(", ")} out`;
-                const index = dataset.days.findIndex((d) => d.label === label);
+            // Labels of players out on the same or nearby days are stacked downwards.
+            data: lines.map(({ label, index, player }, i) => {
+                const text = `${displayName(player, settings.names)} out`;
                 const align = index > (dataset.days.length - 1) / 2 ? "right" : "left";
-                return { xAxis: label, label: { formatter: () => text, align } };
+                return {
+                    xAxis: label,
+                    lineStyle: { color: player.color },
+                    label: {
+                        formatter: () => text,
+                        align,
+                        color: player.color,
+                        offset: [0, nearbyBefore(i) * ELIMINATION_LABEL_HEIGHT],
+                    },
+                };
             }),
         },
     };
@@ -98,8 +128,8 @@ function eliminationSeries(dataset: Dataset, players: PlayerSeries[], settings: 
  */
 function missingDaysArea(dataset: Dataset, settings: ChartSettings) {
     const areas = dataset.missingDays.flatMap((run) => {
-        const before = labelOfDay(dataset, run.first - 1);
-        const after = labelOfDay(dataset, run.last + 1);
+        const before = labelOfDay(dataset, run.first - 1, settings.xAxis);
+        const after = labelOfDay(dataset, run.last + 1, settings.xAxis);
         return before && after ? [[{ xAxis: before }, { xAxis: after }]] : [];
     });
     return {
@@ -172,7 +202,7 @@ export function statChartOption(dataset: Dataset, statId: string, settings: Char
         },
         xAxis: {
             type: "category",
-            data: dataset.days.map((d) => d.label),
+            data: dataset.days.map((d) => axisLabel(d, settings.xAxis)),
             boundaryGap: false,
             axisLabel: { color: theme.muted, hideOverlap: true },
             axisLine: { lineStyle: { color: theme.gridLine } },

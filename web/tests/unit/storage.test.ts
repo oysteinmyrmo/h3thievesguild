@@ -1,6 +1,15 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { STORAGE_KEY, forgetGame, recallGame, rememberGame } from "../../src/lib/storage";
+import { DEFAULT_OPTIONS, cleanOptions } from "../../src/lib/options";
+import {
+    OPTIONS_KEY,
+    STORAGE_KEY,
+    forgetGame,
+    recallGame,
+    recallOptions,
+    rememberGame,
+    rememberOptions,
+} from "../../src/lib/storage";
 import { RESOURCES, dataset } from "./saves";
 
 beforeEach(() => localStorage.clear());
@@ -62,11 +71,49 @@ describe("remembering the last game", () => {
         const fail = () => {
             throw new Error("quota or denied");
         };
-        vi.spyOn(localStorage, "getItem").mockImplementation(fail);
-        vi.spyOn(localStorage, "setItem").mockImplementation(fail);
-        vi.spyOn(localStorage, "removeItem").mockImplementation(fail);
+        const spies = [
+            vi.spyOn(localStorage, "getItem").mockImplementation(fail),
+            vi.spyOn(localStorage, "setItem").mockImplementation(fail),
+            vi.spyOn(localStorage, "removeItem").mockImplementation(fail),
+        ];
         expect(rememberGame(game, {})).toBe(false);
         expect(recallGame()).toBeUndefined();
         expect(() => forgetGame()).not.toThrow();
+        // Restored here: restoreAllMocks in afterEach does not undo spies on happy-dom's storage.
+        spies.forEach((spy) => spy.mockRestore());
+    });
+});
+
+describe("remembering the chart options", () => {
+    it("numbers the days on the x-axis until told otherwise", () => {
+        expect(DEFAULT_OPTIONS.xAxis).toBe("day");
+        expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
+    });
+
+    it("stores and restores them, apart from the game", () => {
+        expect(rememberOptions({ xAxis: "date" })).toBe(true);
+        expect(recallOptions()).toEqual({ xAxis: "date" });
+        forgetGame();
+        expect(recallOptions()).toEqual({ xAxis: "date" });
+    });
+
+    it("falls back to the default for anything not valid", () => {
+        for (const text of ["not json", "null", "7", "{}", '{"xAxis":"weeks"}', '{"xAxis":1}']) {
+            localStorage.setItem(OPTIONS_KEY, text);
+            expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
+        }
+        expect(cleanOptions({ xAxis: "date", other: 1 })).toEqual({ xAxis: "date" });
+    });
+
+    it("copes without storage, or with storage that fails", () => {
+        vi.stubGlobal("localStorage", undefined);
+        expect(rememberOptions({ xAxis: "date" })).toBe(false);
+        expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
+        vi.unstubAllGlobals();
+        const spy = vi.spyOn(localStorage, "getItem").mockImplementation(() => {
+            throw new Error("denied");
+        });
+        expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
+        spy.mockRestore();
     });
 });

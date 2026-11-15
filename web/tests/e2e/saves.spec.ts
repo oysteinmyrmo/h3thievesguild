@@ -150,9 +150,10 @@ test("players can be named, with any characters, and the charts use the names", 
     await dialog.getByRole("button", { name: "Save", exact: true }).click();
     await expect(dialog).toHaveCount(0);
 
-    // Chips show the name, with the colour beside it.
+    // Chips show only the name; the colour is in the dot and the tooltip.
     await expect(page.getByTestId("chip-name-red")).toHaveText(odd);
-    await expect(page.getByTestId("chip-red")).toContainText("Red");
+    await expect(page.getByTestId("chip-red")).not.toContainText("Red");
+    await expect(page.getByTestId("chip-red")).toHaveAttribute("title", `Hide ${odd} (Red)`);
     await expect(page.getByTestId("chip-name-blue")).toHaveText("Bob");
     await expect(page.getByTestId("chip-name-tan")).toHaveText("Tan");
     // Every chart's data uses the names.
@@ -197,4 +198,51 @@ test("a new game starts without names", async ({ page }) => {
     await choose(page, [save("experience", "[hotseat] 111.GM2"), save("experience", "[hotseat] 112.GM2")]);
     await expect(page.getByTestId("map-name")).toHaveText("SaveGameTester_Experience");
     await expect(page.getByTestId("chip-name-purple")).toHaveText("Purple");
+});
+
+test("the full-page view steps to the previous and next chart, wrapping around", async ({ page }) => {
+    await choose(page, RESOURCES);
+    await expect(page.locator("[data-testid^=card-]")).toHaveCount(14);
+    const ids = await page.locator("[data-testid^=card-]").evaluateAll((cards) =>
+        cards.map((c) => c.getAttribute("data-testid")!.replace("card-", "")),
+    );
+    expect(ids).toHaveLength(14);
+    await page.getByTestId(`card-${ids[0]}`).click();
+    await page.getByTestId("next-chart").click();
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[1]}$`));
+    await page.getByTestId("previous-chart").click();
+    await page.getByTestId("previous-chart").click();
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[13]}$`));
+    await page.getByTestId("next-chart").click();
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[0]}$`));
+    // The page has caught up with the URL once the chart's table is there.
+    await expect(page.getByTestId(`table-${ids[0]}`)).toHaveCount(1);
+    // The arrow keys do the same.
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId(`table-${ids[1]}`)).toHaveCount(1);
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId(`table-${ids[2]}`)).toHaveCount(1);
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[2]}$`));
+    await page.keyboard.press("ArrowLeft");
+    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[1]}$`));
+    await expect(page.getByTestId(`table-${ids[1]}`)).toHaveCount(1);
+});
+
+test("the x-axis shows day numbers or dates, and the choice is remembered", async ({ page }) => {
+    await choose(page, RESOURCES);
+    const days = page.getByTestId("table-gold").first().locator("tbody th");
+    await expect(days).toHaveText(["1", "2", "3"]);
+    await page.getByTestId("card-gold").click();
+    const select = page.getByTestId("x-axis");
+    await expect(select).toHaveValue("day");
+    await select.selectOption("date");
+    await expect(page.getByTestId("table-gold").locator("tbody th")).toHaveText(["1-1-1", "1-1-2", "1-1-3"]);
+    // Arrow keys in the dropdown are for the dropdown, not for stepping through the charts.
+    // (The last option is chosen, so this one leaves it as it is.)
+    await select.press("ArrowRight");
+    await expect(page).toHaveURL(/#\/saves\/gold$/);
+    await page.reload();
+    await expect(page.getByTestId("x-axis")).toHaveValue("date");
+    await page.getByRole("link", { name: "← All charts" }).click();
+    await expect(page.getByTestId("table-wood").locator("tbody th")).toHaveText(["1-1-1", "1-1-2", "1-1-3"]);
 });

@@ -36,12 +36,13 @@
                 >
                     <span class="dot" style:background={player.color}></span>
                     <span class="name" data-testid={`chip-name-${player.id}`}>{name}</span>
-                    {#if name !== player.name}<span class="colour">{player.name}</span>{/if}
                     {#if player.eliminatedDay !== null}<span class="out">out on day {player.eliminatedDay}</span>{/if}
                 </button>
             {/each}
         </div>
-        <button class="rename" data-testid="name-players" onclick={() => (naming = true)}>Name players…</button>
+        <button class="rename" data-testid="name-players" onclick={() => (naming = true)}>
+            <span aria-hidden="true">✎</span> Name players…
+        </button>
     </div>
 </header>
 
@@ -116,17 +117,19 @@
         white-space: pre;
     }
 
-    .colour {
-        color: var(--text-muted);
-        font-size: 12px;
-    }
-
     .rename {
         flex: none;
         white-space: nowrap;
         border-radius: 999px;
-        border-style: dashed;
-        padding: 3px 12px;
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 600;
+        padding: 3px 14px;
+    }
+
+    .rename:hover {
+        background: var(--accent);
+        color: var(--accent-text);
     }
 
     .dot {

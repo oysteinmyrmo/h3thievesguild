@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daySpan, escapeHtml, formatAxis, formatValue, longDate, missingDaysText } from "../../src/lib/format";
+import { axisLabel, daySpan, escapeHtml, formatAxis, formatValue, longDate, missingDaysText } from "../../src/lib/format";
 import { splitMessage } from "../../src/lib/message";
 import { RESOURCES, dataset } from "./saves";
 
@@ -19,6 +19,12 @@ describe("formatting", () => {
         expect(daySpan(dataset([RESOURCES[0]!]))).toBe("1-1-1 (1 day)");
         expect(missingDaysText(dataset(RESOURCES))).toBe("");
         expect(missingDaysText(dataset([RESOURCES[0]!, RESOURCES[2]!]))).toBe("1 day without a save");
+    });
+
+    it("labels a day on the x-axis by its number or its date", () => {
+        const day = { day: 40, label: "2-2-5" };
+        expect(axisLabel(day, "day")).toBe("40");
+        expect(axisLabel(day, "date")).toBe("2-2-5");
     });
 
     it("escapes HTML", () => {
