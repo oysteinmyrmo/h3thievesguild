@@ -1,28 +1,12 @@
 // Tests for the in-game date, beyond the date checks in each test file.
 
+mod common;
+
 use std::path::{Path, PathBuf};
 
-use h3save::hero::HERO_RECORD_SIZE;
-use h3save::savefile::{Error, Layout, decompress_file};
+use common::{Decompressed, all_saves, data_dir};
+use h3save::savefile::Error;
 use h3save::{Date, SaveFile, date};
-
-/// Every save file under `test_data`, sorted.
-fn all_saves() -> Vec<PathBuf> {
-    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                walk(&path, out);
-            } else if path.extension().is_some_and(|e| e.to_string_lossy().starts_with("GM")) {
-                out.push(path);
-            }
-        }
-    }
-    let mut out = Vec::new();
-    walk(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data"), &mut out);
-    out.sort();
-    out
-}
 
 /// The date an autosave's name gives: `[hotseat] MWD.GMn`, or `[hotseat] MWD.xx.GMn`.
 /// The `start` saves and the Bulwark and Factory saves were saved on the first day.
@@ -43,17 +27,13 @@ fn date_from_name(path: &Path) -> Date {
 
 /// Decompressed save data and the position of its date.
 fn data_and_date_pos(path: &Path) -> (Vec<u8>, usize) {
-    let data = decompress_file(path).unwrap();
-    let hero_count = usize::try_from(u32::from_le_bytes(data[80..84].try_into().unwrap())).unwrap();
-    let layout = Layout::find(&data, hero_count).unwrap();
-    (
-        data,
-        layout.heroes + hero_count * HERO_RECORD_SIZE + date::OFFSET_AFTER_HEROES,
-    )
+    let save = Decompressed::read(path);
+    let pos = save.heroes_end() + date::OFFSET_AFTER_HEROES;
+    (save.data, pos)
 }
 
 fn sample() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/experience/[hotseat] 121.GM2")
+    data_dir("experience/[hotseat] 121.GM2")
 }
 
 #[test]
@@ -68,7 +48,7 @@ fn every_test_save_has_the_date_its_autosave_name_gives() {
 
 #[test]
 fn consecutive_autosaves_are_one_day_apart() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data/experience");
+    let dir = data_dir("experience");
     let names = ["111", "112", "113", "114", "115", "116", "117", "121"];
     let days: Vec<u32> = names
         .iter()

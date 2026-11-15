@@ -1,10 +1,9 @@
 // Ported from the homm3tools C++ test test-secondary-skills.cpp. Expected values are unchanged.
 
-#[macro_use]
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
+use common::{assert_creature, assert_date, data_dir, find_hero, find_town, open};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -21,19 +20,18 @@ fn test_skills(hero: &Hero, required: &[SkillSlot]) {
     let mut expected = [SkillSlot::default(); SKILL_SLOT_COUNT];
     expected[..required.len()].copy_from_slice(required);
     for i in 0..skills.len() {
-        require_eq!(skills[i], expected[i]);
+        assert_eq!(skills[i], expected[i]);
     }
 }
 
 #[test]
 fn secondary_skills_day1() {
-    let _guard = common::Guard::new("secondary-skills-day1");
     let save = open(&data_dir("secondary_skills").join("[hotseat] 111.GM5"));
-    test_date(&save, 1, 1, 1);
-    require!(save.valid());
+    assert_date(&save, 1, 1, 1);
+    assert!(save.valid());
 
     let hero = find_hero(&save, "Edric");
-    require_eq!(hero.skill_count, 2);
+    assert_eq!(hero.skill_count, 2);
     test_skills(
         hero,
         &[
@@ -44,7 +42,7 @@ fn secondary_skills_day1() {
     );
 
     let hero = find_hero(&save, "Axsis");
-    require_eq!(hero.skill_count, 2);
+    assert_eq!(hero.skill_count, 2);
     test_skills(
         hero,
         &[
@@ -55,7 +53,7 @@ fn secondary_skills_day1() {
     );
 
     let hero = find_hero(&save, "Leena");
-    require_eq!(hero.skill_count, 2);
+    assert_eq!(hero.skill_count, 2);
     test_skills(
         hero,
         &[
@@ -66,7 +64,7 @@ fn secondary_skills_day1() {
     );
 
     let hero = find_hero(&save, "Lacus");
-    require_eq!(hero.skill_count, 1);
+    assert_eq!(hero.skill_count, 1);
     test_skills(
         hero,
         &[
@@ -76,7 +74,7 @@ fn secondary_skills_day1() {
     );
 
     let hero = find_hero(&save, "Septienna");
-    require_eq!(hero.skill_count, 2);
+    assert_eq!(hero.skill_count, 2);
     test_skills(
         hero,
         &[
@@ -89,13 +87,12 @@ fn secondary_skills_day1() {
 
 #[test]
 fn secondary_skills_day2() {
-    let _guard = common::Guard::new("secondary-skills-day2");
     let save = open(&data_dir("secondary_skills").join("[hotseat] 112.GM5"));
-    test_date(&save, 1, 1, 2);
-    require!(save.valid());
+    assert_date(&save, 1, 1, 2);
+    assert!(save.valid());
 
     let hero = find_hero(&save, "Edric");
-    require_eq!(hero.skill_count, 5);
+    assert_eq!(hero.skill_count, 5);
     test_skills(
         hero,
         &[
@@ -109,7 +106,7 @@ fn secondary_skills_day2() {
     );
 
     let hero = find_hero(&save, "Axsis");
-    require_eq!(hero.skill_count, 5);
+    assert_eq!(hero.skill_count, 5);
     test_skills(
         hero,
         &[
@@ -123,7 +120,7 @@ fn secondary_skills_day2() {
     );
 
     let hero = find_hero(&save, "Leena");
-    require_eq!(hero.skill_count, 5);
+    assert_eq!(hero.skill_count, 5);
     test_skills(
         hero,
         &[
@@ -137,7 +134,7 @@ fn secondary_skills_day2() {
     );
 
     let hero = find_hero(&save, "Lacus");
-    require_eq!(hero.skill_count, 4);
+    assert_eq!(hero.skill_count, 4);
     test_skills(
         hero,
         &[
@@ -150,7 +147,7 @@ fn secondary_skills_day2() {
     );
 
     let hero = find_hero(&save, "Septienna");
-    require_eq!(hero.skill_count, 5);
+    assert_eq!(hero.skill_count, 5);
     test_skills(
         hero,
         &[
@@ -166,13 +163,12 @@ fn secondary_skills_day2() {
 
 #[test]
 fn secondary_skills_day3() {
-    let _guard = common::Guard::new("secondary-skills-day3");
     let save = open(&data_dir("secondary_skills").join("[hotseat] 113.GM5"));
-    test_date(&save, 1, 1, 3);
-    require!(save.valid());
+    assert_date(&save, 1, 1, 3);
+    assert!(save.valid());
 
     let hero = find_hero(&save, "Edric");
-    require_eq!(hero.skill_count, 8);
+    assert_eq!(hero.skill_count, 8);
     test_skills(
         hero,
         &[
@@ -188,7 +184,7 @@ fn secondary_skills_day3() {
     );
 
     let hero = find_hero(&save, "Axsis");
-    require_eq!(hero.skill_count, 8);
+    assert_eq!(hero.skill_count, 8);
     test_skills(
         hero,
         &[
@@ -204,7 +200,7 @@ fn secondary_skills_day3() {
     );
 
     let hero = find_hero(&save, "Leena");
-    require_eq!(hero.skill_count, 8);
+    assert_eq!(hero.skill_count, 8);
     test_skills(
         hero,
         &[
@@ -220,7 +216,7 @@ fn secondary_skills_day3() {
     );
 
     let hero = find_hero(&save, "Lacus");
-    require_eq!(hero.skill_count, 7);
+    assert_eq!(hero.skill_count, 7);
     test_skills(
         hero,
         &[
@@ -236,7 +232,7 @@ fn secondary_skills_day3() {
     );
 
     let hero = find_hero(&save, "Septienna");
-    require_eq!(hero.skill_count, 8);
+    assert_eq!(hero.skill_count, 8);
     test_skills(
         hero,
         &[

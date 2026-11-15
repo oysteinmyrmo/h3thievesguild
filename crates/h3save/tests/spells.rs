@@ -1,12 +1,11 @@
 // Ported from the homm3tools C++ test test-spells.cpp. Expected values are unchanged.
 
-#![expect(clippy::too_many_lines, reason = "one-to-one ports of long C++ test cases")]
+#![expect(clippy::too_many_lines, reason = "long test cases, ported from the C++ tests")]
 
-#[macro_use]
 mod common;
 
 #[allow(unused_imports)]
-use common::{data_dir, find_hero, find_town, open, test_creature, test_date};
+use common::{assert_creature, assert_date, data_dir, find_hero, find_town, open};
 #[allow(unused_imports)]
 use h3save::stats;
 #[allow(unused_imports)]
@@ -27,8 +26,8 @@ fn verify_spell_book(hero: &Hero, expected_spells: &[Spell]) {
         let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spellbook[i] != 0;
         let expected = contains(expected_spells, spell);
-        require_eq!(expected, exists);
-        require_eq!(hero.has_spell_in_spellbook(spell), expected);
+        assert_eq!(expected, exists);
+        assert_eq!(hero.has_spell_in_spellbook(spell), expected);
     }
 }
 
@@ -38,8 +37,8 @@ fn verify_spells(hero: &Hero, expected_spells: &[Spell]) {
         let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spells[i] != 0;
         let expected = contains(expected_spells, spell);
-        require_eq!(expected, exists);
-        require_eq!(hero.has_spell(spell), expected);
+        assert_eq!(expected, exists);
+        assert_eq!(hero.has_spell(spell), expected);
     }
 }
 
@@ -50,11 +49,11 @@ fn verify_spells_from_artifacts_with_speciality(hero: &Hero, expected_spells: &[
         let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spells[i] != 0;
         let expected = contains(expected_spells, spell);
-        require_eq!(expected, exists);
-        require_eq!(hero.has_spell(spell), expected);
+        assert_eq!(expected, exists);
+        assert_eq!(hero.has_spell(spell), expected);
 
         if spell != speciality {
-            require!(!hero.has_spell_in_spellbook(spell)); // This function verifies spells from artifacts only.
+            assert!(!hero.has_spell_in_spellbook(spell)); // This function verifies spells from artifacts only.
         }
     }
 }
@@ -65,19 +64,18 @@ fn verify_spells_from_artifacts(hero: &Hero, expected_spells: &[Spell]) {
         let spell = Spell(u8::try_from(i).unwrap());
         let exists = hero.spells[i] != 0;
         let expected = contains(expected_spells, spell);
-        require_eq!(expected, exists);
-        require_eq!(hero.has_spell(spell), expected);
-        require!(!hero.has_spell_in_spellbook(spell)); // This function verifies spells from artifacts only.
+        assert_eq!(expected, exists);
+        assert_eq!(hero.has_spell(spell), expected);
+        assert!(!hero.has_spell_in_spellbook(spell)); // This function verifies spells from artifacts only.
     }
 }
 
 // Only heroes with spell speciality have spells on day 1.
 #[test]
 fn spells_day1() {
-    let _guard = common::Guard::new("spells-day1");
     let save = open(&data_dir("spells").join("[hotseat] 111.GM3"));
-    test_date(&save, 1, 1, 1);
-    require!(save.valid());
+    assert_date(&save, 1, 1, 1);
+    assert!(save.valid());
 
     let no_spells: [Spell; 0] = [];
 
@@ -198,10 +196,9 @@ fn spells_day1() {
 
 #[test]
 fn spells_day2_sanya() {
-    let _guard = common::Guard::new("spells-day2-sanya");
     let save = open(&data_dir("spells").join("[hotseat] 112.GM3"));
-    test_date(&save, 1, 1, 2);
-    require!(save.valid());
+    assert_date(&save, 1, 1, 2);
+    assert!(save.valid());
 
     {
         let hero = find_hero(&save, "Sanya");

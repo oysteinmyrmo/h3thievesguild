@@ -4,14 +4,16 @@
 //
 // Random cases use a fixed-seed generator, so every run tests the same inputs.
 
+mod common;
+
 use std::io::Write;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::path::{Path, PathBuf};
 
+use common::{Decompressed, data_dir};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use h3save::hero::HERO_RECORD_SIZE;
-use h3save::savefile::{Error, HEADER_NORMAL, Layout, MAX_DECOMPRESSED_SIZE, decompress, decompress_file};
+use h3save::savefile::{Error, HEADER_NORMAL, Layout, MAX_DECOMPRESSED_SIZE, decompress};
 use h3save::town::MAX_TOWNS;
 use h3save::{Date, SaveFile, date};
 
@@ -36,10 +38,6 @@ impl Rng {
     }
 }
 
-fn test_data(path: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_data").join(path)
-}
-
 /// Saves covering 2 and 8 players, small and gigantic maps, with and without underground.
 const SAMPLES: [&str; 4] = [
     "towns/[hotseat] 113.GM2",
@@ -61,11 +59,14 @@ struct Sample {
 
 impl Sample {
     fn load(name: &'static str) -> Sample {
-        let data = decompress_file(test_data(name)).unwrap();
+        let decompressed = Decompressed::read(&data_dir(name));
+        let heroes_end = decompressed.heroes_end();
+        let Decompressed {
+            data,
+            layout,
+            hero_count,
+        } = decompressed;
         let save = SaveFile::parse(&data).unwrap();
-        let hero_count = usize::try_from(save.hero_count).unwrap();
-        let layout = Layout::find(&data, hero_count).unwrap();
-        let heroes_end = layout.heroes + hero_count * HERO_RECORD_SIZE;
         let mut towns = Vec::new();
         let mut pos = layout.town_count + 1;
         for town in &save.towns {
@@ -302,7 +303,7 @@ fn gzip(bytes: &[u8]) -> Vec<u8> {
 
 #[test]
 fn truncated_and_damaged_gzip_never_panics() {
-    let compressed = std::fs::read(test_data(SAMPLES[0])).unwrap();
+    let compressed = std::fs::read(data_dir(SAMPLES[0])).unwrap();
     let mut rng = Rng(0x5EED_0004);
     let mut inputs: Vec<(String, Vec<u8>)> = Vec::new();
     for len in (0..compressed.len())
