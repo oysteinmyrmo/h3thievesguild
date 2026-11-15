@@ -143,7 +143,7 @@
     <GameHeader dataset={game.dataset} />
     {#if detail}
         <div class="detail-toolbar">
-            <a class="button" href="#/saves">← All charts</a>
+            <a class="button all-charts" href="#/saves">← All charts</a>
             {#if previous && next}
                 <nav class="stepper" aria-label="Other charts">
                     <a class="button" href={`#/saves/${previous.id}`} title={previous.name} data-testid="previous-chart">
@@ -334,11 +334,17 @@
         padding: 16px;
     }
 
+    /* All charts on the left, the stepper in the middle and Download on the right. */
     .detail-toolbar {
-        display: flex;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
         align-items: center;
         gap: 8px;
         margin-bottom: 12px;
+    }
+
+    .all-charts {
+        justify-self: start;
     }
 
     .detail-toolbar a {
@@ -351,13 +357,13 @@
     }
 
     .save-png {
-        margin-left: auto;
+        grid-column: 3;
+        justify-self: end;
     }
 
     .stepper {
         display: flex;
         gap: 8px;
-        margin-left: 8px;
     }
 
     .detail-body {
