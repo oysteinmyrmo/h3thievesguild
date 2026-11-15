@@ -52,7 +52,7 @@ id_type! {
     }
 }
 
-/// Number of secondary skills stored per hero.
+/// Number of secondary skills stored per hero in the newest supported format.
 pub const SKILL_COUNT: usize = 30;
 
 /// A skill learned in one of a hero's eight skill slots.

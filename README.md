@@ -11,7 +11,8 @@ saves and charts each player's progress over the game.
 The save parser, ported from the homm3tools C++ code with its full test suite, and the data set
 that turns a game's saves into series for plotting.
 
-- Supports **HotA 1.8** saves only.
+- Supports **HotA 1.7 and 1.8** saves. The few sizes that differ between versions are in
+  `Format`, chosen by the version in the save header.
 - Finds the player, town and hero records by the shape of their data rather than by searching
   for hero and town names, so maps with renamed heroes and towns need no extra input.
 - Reads the in-game date (month, week and day).
@@ -34,7 +35,7 @@ that turns a game's saves into series for plotting.
 | `crates/h3dataset` | Builds the per-day data set for plotting from a game's saves. |
 | `crates/h3wasm` | WebAssembly bindings for the browser, with TypeScript types for the data set. |
 | `web` | The web frontend. |
-| `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools. Each folder's `info.txt` describes what was done in game. |
+| `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools, and two HotA 1.7 saves in `hota_1_7`. Each folder's `info.txt` describes what was done in game. |
 
 ## Tests
 
@@ -93,7 +94,7 @@ WebAssembly in a Web Worker. Choose the save files of one game and it charts eac
 statistics day by day. The last game is remembered in the browser until cleared.
 
 You need Rust with the `wasm32-unknown-unknown` target, the `wasm-bindgen` command-line tool at the
-version of the `wasm-bindgen` crate in `Cargo.lock`, and Node.js 22 or later:
+version of the `wasm-bindgen` crate in `Cargo.lock`, and Node.js 22.12 or later:
 
 ```sh
 rustup target add wasm32-unknown-unknown

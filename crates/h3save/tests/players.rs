@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use common::{Decompressed, all_saves, data_dir, open};
 use h3save::player::{MAX_PLAYERS, NONE, PLAYER_RECORD_SIZE, players};
-use h3save::savefile::{Error, Layout};
+use h3save::savefile::{Error, Format, Layout};
 use h3save::{Color, SaveFile, TownType};
 
 /// Names of the heroes a player has on the map, in the player's order.
@@ -31,7 +31,7 @@ fn town_names(save: &SaveFile, color: Color) -> Vec<&str> {
 #[test]
 fn player_records_agree_with_the_hero_and_town_records_in_every_save() {
     let saves = all_saves();
-    assert_eq!(saves.len(), 70);
+    assert_eq!(saves.len(), 72);
     for path in saves {
         let save = open(&path);
         let what = path.display();
@@ -344,11 +344,11 @@ fn players_cannot_start_before_the_data() {
         players + PLAYER_RECORD_SIZE,
         players + 7 * PLAYER_RECORD_SIZE,
     ] {
-        let result = Layout::find(&data[cut..], 215);
+        let result = Layout::find(&data[cut..], 215, Format::HOTA_1_8);
         assert!(
             matches!(result, Err(Error::PlayersNotFound)),
             "cut at {cut}: {result:?}"
         );
     }
-    assert!(Layout::find(&data[players..], 215).is_ok());
+    assert!(Layout::find(&data[players..], 215, Format::HOTA_1_8).is_ok());
 }
