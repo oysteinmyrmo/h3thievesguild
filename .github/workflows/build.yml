@@ -94,15 +94,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Find the wasm-bindgen version
-        id: wasm-bindgen
-        run: echo "version=$(cargo pkgid -p wasm-bindgen | sed 's/.*@//')" >> "$GITHUB_OUTPUT"
-      - name: Install wasm-bindgen
-        uses: taiki-e/install-action@v2
-        with:
-          # The command-line tool must match the library version in Cargo.lock.
-          tool: wasm-bindgen@${{ steps.wasm-bindgen.outputs.version }}
-          fallback: none
+      - uses: ./.github/actions/install-wasm-bindgen
       - name: Test in Node.js
         run: cargo test -p h3wasm --target wasm32-unknown-unknown
       - name: Generate the JavaScript bindings
@@ -129,14 +121,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Find the wasm-bindgen version
-        id: wasm-bindgen
-        run: echo "version=$(cargo pkgid -p wasm-bindgen | sed 's/.*@//')" >> "$GITHUB_OUTPUT"
-      - name: Install wasm-bindgen
-        uses: taiki-e/install-action@v2
-        with:
-          tool: wasm-bindgen@${{ steps.wasm-bindgen.outputs.version }}
-          fallback: none
+      - uses: ./.github/actions/install-wasm-bindgen
       - name: Install Node.js
         uses: actions/setup-node@v7
         with:
