@@ -17,7 +17,8 @@ pub struct StatInfo {
     pub id: &'static str,
     /// Name to show.
     pub name: &'static str,
-    /// Group to show it under, such as "Resources".
+    /// Category to show it under, such as "Economy". The page lists the categories in the
+    /// order they first appear.
     pub group: &'static str,
 }
 
@@ -70,31 +71,31 @@ fn count(n: usize) -> f64 {
 /// Statistics of each player, in the order the frontend should list them.
 pub(crate) const PLAYER_STATS: &[PlayerStat] = &[
     PlayerStat {
-        info: info("gold", "Gold", "Resources"),
+        info: info("gold", "Gold", "Economy"),
         read: |p, _| f64::from(p.gold()),
     },
     PlayerStat {
-        info: info("wood", "Wood", "Resources"),
+        info: info("wood", "Wood", "Economy"),
         read: |p, _| f64::from(p.wood()),
     },
     PlayerStat {
-        info: info("ore", "Ore", "Resources"),
+        info: info("ore", "Ore", "Economy"),
         read: |p, _| f64::from(p.ore()),
     },
     PlayerStat {
-        info: info("mercury", "Mercury", "Resources"),
+        info: info("mercury", "Mercury", "Economy"),
         read: |p, _| f64::from(p.mercury()),
     },
     PlayerStat {
-        info: info("sulfur", "Sulfur", "Resources"),
+        info: info("sulfur", "Sulfur", "Economy"),
         read: |p, _| f64::from(p.sulfur()),
     },
     PlayerStat {
-        info: info("crystal", "Crystal", "Resources"),
+        info: info("crystal", "Crystal", "Economy"),
         read: |p, _| f64::from(p.crystal()),
     },
     PlayerStat {
-        info: info("gems", "Gems", "Resources"),
+        info: info("gems", "Gems", "Economy"),
         read: |p, _| f64::from(p.gems()),
     },
     PlayerStat {
@@ -102,27 +103,27 @@ pub(crate) const PLAYER_STATS: &[PlayerStat] = &[
         read: |p, _| big(p.kingdom_army_strength()),
     },
     PlayerStat {
-        info: info("heroes", "Heroes", "Heroes"),
+        info: info("heroes", "Heroes", "Kingdom"),
         read: |p, _| count(p.heroes().len()),
     },
     PlayerStat {
-        info: info("heroesOnMap", "Heroes on the map", "Heroes"),
+        info: info("heroesOnMap", "Heroes on the map", "Kingdom"),
         read: on_map,
     },
     PlayerStat {
-        info: info("totalHeroLevels", "Total hero levels", "Heroes"),
+        info: info("totalHeroLevels", "Total hero levels", "Kingdom"),
         read: total_levels,
     },
     PlayerStat {
-        info: info("highestHeroLevel", "Highest hero level", "Heroes"),
+        info: info("highestHeroLevel", "Highest hero level", "Kingdom"),
         read: highest_level,
     },
     PlayerStat {
-        info: info("totalExperience", "Total experience", "Heroes"),
+        info: info("totalExperience", "Total experience", "Kingdom"),
         read: total_experience,
     },
     PlayerStat {
-        info: info("towns", "Towns", "Towns"),
+        info: info("towns", "Towns", "Kingdom"),
         read: |p, _| count(p.towns().len()),
     },
 ];

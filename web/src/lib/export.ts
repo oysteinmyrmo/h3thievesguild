@@ -1,7 +1,7 @@
 // Charts saved as PNG images: one at a time, or all of them in a ZIP file.
 //
 // Each image is drawn from scratch at a fixed size with the chart's title, so it looks the same
-// whatever the size of the window, and the small charts of the overview export in full.
+// whatever the size of the window.
 
 import { statChartOption, type ChartSettings } from "./chart";
 import { echarts } from "./echarts";

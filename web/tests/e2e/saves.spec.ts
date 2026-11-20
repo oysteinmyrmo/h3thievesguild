@@ -17,6 +17,22 @@ async function choose(page: Page, files: ReturnType<typeof save>[]) {
     await page.getByTestId("file-input").setInputFiles(files);
 }
 
+/** The category of each chart of the test saves. */
+const CATEGORY: Record<string, string> = {
+    ...Object.fromEntries(["gold", "wood", "ore", "mercury", "sulfur", "crystal", "gems"].map((id) => [id, "Economy"])),
+    armyStrength: "Army",
+    ...Object.fromEntries(
+        ["heroes", "heroesOnMap", "totalHeroLevels", "highestHeroLevel", "totalExperience", "towns"].map((id) => [id, "Kingdom"]),
+    ),
+};
+
+/** Show a chart by choosing its category, then the chart, as a user would. */
+async function showChart(page: Page, id: string) {
+    await page.getByTestId("category-select").selectOption(CATEGORY[id]!);
+    await page.getByTestId("chart-select").selectOption(id);
+    await expect(page.getByTestId(`table-${id}`)).toHaveCount(1);
+}
+
 test.beforeEach(async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => localStorage.clear());
@@ -32,33 +48,52 @@ test("the page has the menu and asks for saves", async ({ page }) => {
     await expect(page.getByTestId("empty")).toBeVisible();
 });
 
-test("loading a game shows the map, the players and a chart per statistic", async ({ page }) => {
+test("loading a game shows the map, the players and the first chart, large", async ({ page }) => {
     await choose(page, RESOURCES);
     await expect(page.getByTestId("map-name")).toHaveText("SaveGameTester_Resources");
     await expect(page.getByTestId("day-span")).toHaveText("1-1-1 to 1-1-3 (3 days)");
     await expect(page.getByRole("group", { name: "Players shown in the charts" }).getByRole("button")).toHaveCount(8);
     await expect(page.getByTestId("chip-blue")).toContainText("out on day 3");
-    // One card per player statistic, each with a drawn chart.
-    await expect(page.locator("[data-testid^=card-]")).toHaveCount(14);
-    await expect(page.getByTestId("card-gold").locator("canvas").first()).toBeVisible();
-    // The values, as the table behind each chart: blue's gold from info.txt, 0 on day 3 when
+    // One chart at a time: the first one, Gold, drawn.
+    await expect(page.getByTestId("category-select")).toHaveValue("Economy");
+    await expect(page.getByTestId("chart-select")).toHaveValue("gold");
+    await expect(page.getByRole("heading", { name: "Gold", level: 2 })).toBeVisible();
+    await expect(page.getByTestId("chart-gold").locator("canvas").first()).toBeVisible();
+    await expect(page.locator("[data-testid^=table-]")).toHaveCount(1);
+    // The values, as the table behind the chart: blue's gold from info.txt, 0 on day 3 when
     // blue is out of the game.
-    const gold = page.getByTestId("table-gold").first();
+    const gold = page.getByTestId("table-gold");
     await expect(gold.locator("tbody tr").nth(0)).toContainText("3,400");
     await expect(gold.locator("tbody tr").nth(2).locator("td").nth(1)).toHaveText("0");
 });
 
-test("a chart opens in a full-page view and Back returns to the grid", async ({ page }) => {
+test("the dropdowns choose the category and the chart, and Back returns to the one before", async ({ page }) => {
     await choose(page, RESOURCES);
-    await page.getByTestId("card-gold").click();
-    await expect(page).toHaveURL(/#\/saves\/gold$/);
-    await expect(page.getByRole("heading", { name: "Gold", level: 2 })).toBeVisible();
-    await expect(page.locator("[data-testid^=card-]")).toHaveCount(0);
+    const category = page.getByTestId("category-select");
+    const chart = page.getByTestId("chart-select");
+    await expect(category.locator("option")).toHaveText(["Economy", "Army", "Kingdom"]);
+    // The chart dropdown lists the charts of the chosen category only.
+    await expect(chart.locator("option")).toHaveText(["Gold", "Wood", "Ore", "Mercury", "Sulfur", "Crystal", "Gems"]);
+    await chart.selectOption("ore");
+    await expect(page).toHaveURL(/#\/saves\/ore$/);
+    await expect(page.getByRole("heading", { name: "Ore", level: 2 })).toBeVisible();
+    // A new category starts at its first chart.
+    await category.selectOption("Kingdom");
+    await expect(page).toHaveURL(/#\/saves\/heroes$/);
+    await expect(chart.locator("option")).toHaveText([
+        "Heroes", "Heroes on the map", "Total hero levels", "Highest hero level", "Total experience", "Towns",
+    ]);
+    await category.selectOption("Army");
+    await expect(chart.locator("option")).toHaveText(["Kingdom army strength"]);
+    await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
     await page.goBack();
-    await expect(page.locator("[data-testid^=card-]")).toHaveCount(14);
-    await page.getByTestId("card-armyStrength").click();
-    await page.getByRole("link", { name: "← All charts" }).click();
-    await expect(page).toHaveURL(/#\/saves$/);
+    await expect(page).toHaveURL(/#\/saves\/heroes$/);
+    await expect(category).toHaveValue("Kingdom");
+    // A chart can be linked to, and an unknown one shows the first.
+    await page.goto("/#/saves/towns");
+    await expect(chart).toHaveValue("towns");
+    await page.goto("/#/saves/nonsense");
+    await expect(chart).toHaveValue("gold");
 });
 
 test("a player chip hides and shows the player in every chart", async ({ page }) => {
@@ -68,6 +103,7 @@ test("a player chip hides and shows the player in every chart", async ({ page })
     await chip.click();
     await expect(chip).toHaveAttribute("aria-pressed", "false");
     await expect(page.getByTestId("table-gold").locator("thead th")).not.toContainText(["Blue"]);
+    await showChart(page, "wood");
     await expect(page.getByTestId("table-wood").locator("thead th")).toHaveCount(8);
     await chip.click();
     await expect(page.getByTestId("table-wood").locator("thead th")).toHaveCount(9);
@@ -160,9 +196,9 @@ test("players can be named, with any characters, and the charts use the names", 
     // Every chart's data uses the names.
     const header = page.getByTestId("table-gold").locator("thead th");
     await expect(header).toHaveText(["Day", odd, "Bob", "Tan", "Green", "Orange", "Purple", "Teal", "Pink"]);
+    await showChart(page, "towns");
     await expect(page.getByTestId("table-towns").locator("thead th").nth(1)).toHaveText(odd);
-    await page.getByTestId("card-gold").click();
-    await expect(page.getByTestId("table-gold").locator("thead th").nth(2)).toHaveText("Bob");
+    await expect(page.getByTestId("table-towns").locator("thead th").nth(2)).toHaveText("Bob");
 });
 
 test("player names are remembered, and an empty name gives back the colour", async ({ page }) => {
@@ -201,39 +237,48 @@ test("a new game starts without names", async ({ page }) => {
     await expect(page.getByTestId("chip-name-purple")).toHaveText("Purple");
 });
 
-test("the full-page view steps to the previous and next chart, wrapping around", async ({ page }) => {
+test("the arrows step to the previous and next chart, across categories and wrapping around", async ({ page }) => {
     await choose(page, RESOURCES);
-    await expect(page.locator("[data-testid^=card-]")).toHaveCount(14);
-    const ids = await page.locator("[data-testid^=card-]").evaluateAll((cards) =>
-        cards.map((c) => c.getAttribute("data-testid")!.replace("card-", "")),
-    );
-    expect(ids).toHaveLength(14);
-    await page.getByTestId(`card-${ids[0]}`).click();
-    await page.getByTestId("next-chart").click();
-    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[1]}$`));
-    await page.getByTestId("previous-chart").click();
-    await page.getByTestId("previous-chart").click();
-    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[13]}$`));
-    await page.getByTestId("next-chart").click();
-    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[0]}$`));
-    // The page has caught up with the URL once the chart's table is there.
-    await expect(page.getByTestId(`table-${ids[0]}`)).toHaveCount(1);
-    // The arrow keys do the same.
+    const previous = page.getByTestId("previous-chart");
+    const next = page.getByTestId("next-chart");
+    // The arrows name the charts they lead to, with the category when it is another one.
+    await expect(previous).toHaveText("← Towns (Kingdom)");
+    await expect(next).toHaveText("Wood →");
+    await next.click();
+    await expect(page).toHaveURL(/#\/saves\/wood$/);
+    await previous.click();
+    await previous.click();
+    await expect(page).toHaveURL(/#\/saves\/towns$/);
+    await expect(page.getByTestId("category-select")).toHaveValue("Kingdom");
+    await next.click();
+    await expect(page).toHaveURL(/#\/saves\/gold$/);
+    // From the last chart of a category to the first of the next.
+    await showChart(page, "gems");
+    await expect(next).toHaveText("Kingdom army strength (Army) →");
+    await next.click();
+    await expect(page.getByTestId("category-select")).toHaveValue("Army");
+    await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
+    // The arrow keys do the same, once the page has caught up with the URL.
+    await page.locator("body").click({ position: { x: 1, y: 1 } });
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId(`table-${ids[1]}`)).toHaveCount(1);
+    await expect(page.getByTestId("table-heroes")).toHaveCount(1);
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId(`table-${ids[2]}`)).toHaveCount(1);
-    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[2]}$`));
+    await expect(page.getByTestId("table-heroesOnMap")).toHaveCount(1);
+    await expect(page).toHaveURL(/#\/saves\/heroesOnMap$/);
     await page.keyboard.press("ArrowLeft");
-    await expect(page).toHaveURL(new RegExp(`#/saves/${ids[1]}$`));
-    await expect(page.getByTestId(`table-${ids[1]}`)).toHaveCount(1);
+    await expect(page.getByTestId("table-heroes")).toHaveCount(1);
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
+    // Arrow keys in a dropdown are for the dropdown. (Army has one chart, so the chart dropdown
+    // has nowhere to go; some browsers change a dropdown's value with the arrow keys.)
+    await page.getByTestId("chart-select").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
 });
 
 test("the x-axis shows day numbers or dates, and the choice is remembered", async ({ page }) => {
     await choose(page, RESOURCES);
-    const days = page.getByTestId("table-gold").first().locator("tbody th");
-    await expect(days).toHaveText(["1", "2", "3"]);
-    await page.getByTestId("card-gold").click();
+    await expect(page.getByTestId("table-gold").locator("tbody th")).toHaveText(["1", "2", "3"]);
     const select = page.getByTestId("x-axis");
     await expect(select).toHaveValue("day");
     await select.selectOption("date");
@@ -241,10 +286,10 @@ test("the x-axis shows day numbers or dates, and the choice is remembered", asyn
     // Arrow keys in the dropdown are for the dropdown, not for stepping through the charts.
     // (The last option is chosen, so this one leaves it as it is.)
     await select.press("ArrowRight");
-    await expect(page).toHaveURL(/#\/saves\/gold$/);
+    await expect(page.getByTestId("table-gold")).toHaveCount(1);
     await page.reload();
     await expect(page.getByTestId("x-axis")).toHaveValue("date");
-    await page.getByRole("link", { name: "← All charts" }).click();
+    await showChart(page, "wood");
     await expect(page.getByTestId("table-wood").locator("tbody th")).toHaveText(["1-1-1", "1-1-2", "1-1-3"]);
 });
 
@@ -265,18 +310,19 @@ function pngSize(png: Buffer): [number, number] {
     return [png.readUInt32BE(16), png.readUInt32BE(20)];
 }
 
-test("a chart downloads as a PNG image, from its page or its card", async ({ page }) => {
+test("the chart shown downloads as a PNG image", async ({ page }) => {
     await choose(page, RESOURCES);
+    await showChart(page, "wood");
     let wait = page.waitForEvent("download");
-    await page.getByTestId("download-wood").click();
+    await page.getByTestId("download-chart").click();
     let file = await wait;
     expectFileName(file, "SaveGameTester_Resources - Wood.png");
     let png = await bytes(file);
     expect(png.subarray(0, 8)).toEqual(PNG_SIGNATURE);
-    // Drawn at a fixed size, twice over for sharpness, whatever the size of the card.
+    // Drawn at a fixed size, twice over for sharpness, whatever the size of the window.
     expect(pngSize(png)).toEqual([3200, 1800]);
 
-    await page.getByTestId("card-gold").click();
+    await showChart(page, "gold");
     wait = page.waitForEvent("download");
     await page.getByTestId("download-chart").click();
     file = await wait;
@@ -313,34 +359,32 @@ test("all charts download as PNG images in one ZIP file", async ({ page }) => {
     await expect(page.getByTestId("download-all")).toBeEnabled();
 });
 
-test("every chart switches to stacked shares from the overview or a chart's page, and stays so", async ({ page }) => {
+test("every chart switches to stacked shares, and stays so", async ({ page }) => {
     await choose(page, RESOURCES);
     const type = page.getByTestId("chart-type");
     await expect(type).toHaveValue("lines");
     await type.selectOption("share");
     // Day 1: red has 2,500 of the 23,600 gold all players have (info.txt).
-    const gold = page.getByTestId("table-gold").first();
+    const gold = page.getByTestId("table-gold");
     await expect(gold.locator("caption")).toContainText("share of the total");
     await expect(gold.locator("tbody tr").nth(0).locator("td").nth(0)).toHaveText("10.6%");
     // Every day's shares add up to 100%, in every chart.
     for (const id of ["gold", "wood", "heroes"]) {
-        const cells = await page.getByTestId(`table-${id}`).first().locator("tbody tr").nth(1).locator("td").allTextContents();
+        await showChart(page, id);
+        const cells = await page.getByTestId(`table-${id}`).locator("tbody tr").nth(1).locator("td").allTextContents();
         expect(cells).toHaveLength(8);
         const total = cells.reduce((sum, text) => sum + parseFloat(text), 0);
         expect(Math.abs(total - 100), `${id}: ${cells.join(" ")}`).toBeLessThan(0.5);
     }
-    // No one has any wood on day 1, so there is no share to show.
-    const wood = page.getByTestId("table-wood").first().locator("tbody tr").nth(0).locator("td");
-    await expect(wood).toHaveText(Array(8).fill("—"));
-    // The chart's page shows the same choice, and switching back there switches the overview too.
-    await page.getByTestId("card-wood").click();
-    await expect(page.getByTestId("chart-type")).toHaveValue("share");
-    // Red has 15 of the 37 wood on day 2.
-    await expect(page.getByTestId("table-wood").locator("tbody tr").nth(1).locator("td").nth(0)).toHaveText("40.5%");
+    // No one has any wood on day 1, so there is no share to show; red has 15 of the 37 wood on
+    // day 2.
+    await showChart(page, "wood");
+    const wood = page.getByTestId("table-wood").locator("tbody tr");
+    await expect(wood.nth(0).locator("td")).toHaveText(Array(8).fill("—"));
+    await expect(wood.nth(1).locator("td").nth(0)).toHaveText("40.5%");
     await page.reload();
     await expect(page.getByTestId("chart-type")).toHaveValue("share");
     await page.getByTestId("chart-type").selectOption("lines");
-    await page.getByRole("link", { name: "← All charts" }).click();
-    await expect(page.getByTestId("chart-type")).toHaveValue("lines");
-    await expect(page.getByTestId("table-gold").first().locator("tbody tr").nth(0)).toContainText("2,500");
+    await showChart(page, "gold");
+    await expect(page.getByTestId("table-gold").locator("tbody tr").nth(0)).toContainText("2,500");
 });
