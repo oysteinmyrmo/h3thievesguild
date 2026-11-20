@@ -73,6 +73,10 @@ fn check_shape(dataset: &Dataset) {
     }
     let player_stats: BTreeSet<&str> = dataset.player_stats.iter().map(|s| s.id).collect();
     assert_eq!(player_stats.len(), dataset.player_stats.len(), "unique player stat IDs");
+    // The player statistics come by category: each once, in this order, its statistics together.
+    let mut groups: Vec<&str> = dataset.player_stats.iter().map(|s| s.group).collect();
+    groups.dedup();
+    assert_eq!(groups, ["Economy", "Army", "Kingdom"]);
     let hero_stats: BTreeSet<&str> = dataset.hero_stats.iter().map(|s| s.id).collect();
     assert_eq!(hero_stats.len(), dataset.hero_stats.len(), "unique hero stat IDs");
     let ids: Vec<&str> = dataset.players.iter().map(|p| p.id.as_str()).collect();
