@@ -242,8 +242,14 @@ test("the arrows step to the previous and next chart, across categories and wrap
     const previous = page.getByTestId("previous-chart");
     const next = page.getByTestId("next-chart");
     // The arrows name the charts they lead to, with the category when it is another one.
-    await expect(previous).toHaveText("← Towns (Kingdom)");
-    await expect(next).toHaveText("Wood →");
+    await expect(previous).toContainText("Previous");
+    await expect(previous).toContainText("Towns (Kingdom)");
+    await expect(next).toContainText("Next");
+    await expect(next).toContainText("Wood");
+    // The arrows keep their size whatever the names.
+    const sizes = async () => [await previous.boundingBox(), await next.boundingBox()].map((b) => [b!.width, b!.height]);
+    const before = await sizes();
+    expect(before[0]).toEqual(before[1]);
     await next.click();
     await expect(page).toHaveURL(/#\/saves\/wood$/);
     await previous.click();
@@ -254,7 +260,8 @@ test("the arrows step to the previous and next chart, across categories and wrap
     await expect(page).toHaveURL(/#\/saves\/gold$/);
     // From the last chart of a category to the first of the next.
     await showChart(page, "gems");
-    await expect(next).toHaveText("Kingdom army strength (Army) →");
+    await expect(next).toContainText("Kingdom army strength (Army)");
+    expect(await sizes()).toEqual(before);
     await next.click();
     await expect(page.getByTestId("category-select")).toHaveValue("Army");
     await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
