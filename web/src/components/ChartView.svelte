@@ -108,8 +108,17 @@
                 />
             </div>
             <nav class="stepper" aria-label="Charts">
-                <button class="arrow" data-testid="previous-chart" title="Previous chart" onclick={() => show(at.previous)}>
-                    ← {neighbour(at.previous)}
+                <button
+                    class="arrow previous"
+                    data-testid="previous-chart"
+                    title={`Previous chart: ${neighbour(at.previous)}`}
+                    onclick={() => show(at.previous)}
+                >
+                    <span class="icon" aria-hidden="true">←</span>
+                    <span class="text">
+                        <span class="direction">Previous</span>
+                        <span class="name">{neighbour(at.previous)}</span>
+                    </span>
                 </button>
                 <select
                     data-testid="chart-select"
@@ -126,8 +135,17 @@
                         <option value={info.id}>{info.name}</option>
                     {/each}
                 </select>
-                <button class="arrow" data-testid="next-chart" title="Next chart" onclick={() => show(at.next)}>
-                    {neighbour(at.next)} →
+                <button
+                    class="arrow next"
+                    data-testid="next-chart"
+                    title={`Next chart: ${neighbour(at.next)}`}
+                    onclick={() => show(at.next)}
+                >
+                    <span class="text">
+                        <span class="direction">Next</span>
+                        <span class="name">{neighbour(at.next)}</span>
+                    </span>
+                    <span class="icon" aria-hidden="true">→</span>
                 </button>
             </nav>
         </div>
@@ -194,7 +212,8 @@
 
     .stepper {
         display: grid;
-        grid-template-columns: 1fr auto 1fr;
+        /* Equal sides that may shrink, so the arrows stay the same size as each other. */
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         align-items: center;
         gap: 12px;
         margin-top: 12px;
@@ -205,16 +224,47 @@
         font-weight: 600;
     }
 
+    /* The same size whatever the chart names, so nothing moves while stepping through. */
     .arrow {
-        justify-self: end;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 300px;
         max-width: 100%;
+        padding: 6px 12px;
+    }
+
+    .previous {
+        justify-self: end;
+        text-align: left;
+    }
+
+    .next {
+        justify-self: start;
+        text-align: right;
+    }
+
+    .icon {
+        flex: none;
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    .text {
+        display: grid;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .direction {
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    .name {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-    }
-
-    .arrow:last-child {
-        justify-self: start;
     }
 
     .side {
