@@ -11,6 +11,11 @@ export function formatValue(value: number | null | undefined): string {
     return value === null || value === undefined ? "—" : whole.format(value);
 }
 
+/** A share for a tooltip or table: "32.4%", or an em dash when there is none. */
+export function formatShare(share: number | null | undefined): string {
+    return share === null || share === undefined ? "—" : `${share.toFixed(1)}%`;
+}
+
 /** A value for an axis: "12K". */
 export function formatAxis(value: number): string {
     return Math.abs(value) < 10_000 ? whole.format(value) : short.format(value);

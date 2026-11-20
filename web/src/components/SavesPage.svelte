@@ -5,7 +5,7 @@
     import StatChart from "./StatChart.svelte";
     import { game } from "../lib/game.svelte";
     import { loadSaves, readFiles } from "../lib/load";
-    import { X_AXIS_MODES, type XAxisMode } from "../lib/options";
+    import DisplayOptions from "./DisplayOptions.svelte";
     import { chartFileName, chartPng, chartsZip, download, fileName, printable } from "../lib/export";
     import { theme } from "../lib/theme.svelte";
     import type { StatInfo } from "../lib/wasm/pkg/h3wasm";
@@ -58,7 +58,7 @@
     let exporting = $state<string | undefined>(undefined);
 
     function exportSettings() {
-        return { hidden: game.hidden, names: game.names, theme: theme.current, xAxis: game.options.xAxis };
+        return { hidden: game.hidden, names: game.names, theme: theme.current, ...game.options };
     }
 
     async function savePng(info: StatInfo) {
@@ -173,63 +173,54 @@
                         hidden={game.hidden}
                         names={game.names}
                         compact={false}
-                        xAxis={game.options.xAxis}
+                        options={game.options}
                     />
                 </div>
-                <aside class="options" aria-label="Chart options">
-                    <h3>Display options</h3>
-                    <label>
-                        X-axis
-                        <select
-                            data-testid="x-axis"
-                            value={game.options.xAxis}
-                            onchange={(e) => game.setOptions({ xAxis: e.currentTarget.value as XAxisMode })}
-                        >
-                            {#each X_AXIS_MODES as mode (mode.value)}
-                                <option value={mode.value}>{mode.label}</option>
-                            {/each}
-                        </select>
-                    </label>
+                <aside class="options-column">
+                    <DisplayOptions />
                 </aside>
             </div>
         </section>
     {:else}
-        <div class="grid-bar">
-            <button data-testid="download-all" disabled={exporting !== undefined} onclick={saveAll}>
-                {exporting === "all" ? "Saving charts…" : "⤓ Download all as PNG (zip)"}
-            </button>
+        <div class="overview">
+            <section class="grid" aria-label="All charts">
+                {#each game.dataset.playerStats as info (info.id)}
+                    <!-- The button sits beside the link, not in it: a link cannot hold a button. -->
+                    <div class="card-wrap">
+                        <a class="card" href={`#/saves/${info.id}`} data-testid={`card-${info.id}`}>
+                            <h3>{info.name}</h3>
+                            <span class="group">{info.group}</span>
+                            <div class="card-chart">
+                                <StatChart
+                                    dataset={game.dataset}
+                                    stat={info}
+                                    hidden={game.hidden}
+                                    names={game.names}
+                                    compact={true}
+                                    options={game.options}
+                                />
+                            </div>
+                        </a>
+                        <button
+                            class="card-png"
+                            data-testid={`download-${info.id}`}
+                            title={`Download ${info.name} as PNG`}
+                            aria-label={`Download ${info.name} as PNG`}
+                            disabled={exporting !== undefined}
+                            onclick={() => savePng(info)}
+                        >
+                            {exporting === info.id ? "…" : "⤓"}
+                        </button>
+                    </div>
+                {/each}
+            </section>
+            <aside class="overview-options">
+                <DisplayOptions />
+                <button data-testid="download-all" disabled={exporting !== undefined} onclick={saveAll}>
+                    {exporting === "all" ? "Saving charts…" : "⤓ Download all as PNG (zip)"}
+                </button>
+            </aside>
         </div>
-        <section class="grid" aria-label="All charts">
-            {#each game.dataset.playerStats as info (info.id)}
-                <!-- The button sits beside the link, not in it: a link cannot hold a button. -->
-                <div class="card-wrap">
-                    <a class="card" href={`#/saves/${info.id}`} data-testid={`card-${info.id}`}>
-                        <h3>{info.name}</h3>
-                        <span class="group">{info.group}</span>
-                        <div class="card-chart">
-                            <StatChart
-                                dataset={game.dataset}
-                                stat={info}
-                                hidden={game.hidden}
-                                names={game.names}
-                                compact={true}
-                                xAxis={game.options.xAxis}
-                            />
-                        </div>
-                    </a>
-                    <button
-                        class="card-png"
-                        data-testid={`download-${info.id}`}
-                        title={`Download ${info.name} as PNG`}
-                        aria-label={`Download ${info.name} as PNG`}
-                        disabled={exporting !== undefined}
-                        onclick={() => savePng(info)}
-                    >
-                        {exporting === info.id ? "…" : "⤓"}
-                    </button>
-                </div>
-            {/each}
-        </section>
     {/if}
 {:else if !game.loading && !game.error}
     <div class="empty" data-testid="empty">
@@ -273,10 +264,23 @@
         gap: 16px;
     }
 
-    .grid-bar {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 12px;
+    /* The charts, with the display options in a column on the right, as on a chart's page. */
+    .overview {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 16px;
+        align-items: start;
+    }
+
+    .overview-options {
+        display: grid;
+        gap: 20px;
+        position: sticky;
+        top: 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
     }
 
     .card-wrap {
@@ -377,31 +381,8 @@
         height: min(70vh, 640px);
     }
 
-    .options {
+    .options-column {
         border-left: 1px solid var(--border);
         padding-left: 16px;
-    }
-
-    .options h3 {
-        margin: 0 0 12px;
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: var(--text-muted);
-    }
-
-    .options label {
-        display: grid;
-        gap: 4px;
-        font-size: 13px;
-    }
-
-    .options select {
-        font: inherit;
-        padding: 5px 8px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        background: var(--surface);
-        color: var(--text);
     }
 </style>

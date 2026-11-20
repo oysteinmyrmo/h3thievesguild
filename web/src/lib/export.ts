@@ -37,7 +37,8 @@ export async function chartPng(dataset: Dataset, stat: StatInfo, settings: Omit<
     const element = document.createElement("div");
     const chart = echarts.init(element, null, { renderer: "canvas", width: EXPORT_WIDTH, height: EXPORT_HEIGHT });
     try {
-        const title = { text: stat.name, subtext: printable(dataset.map.name) };
+        const name = settings.chartType === "share" ? `${stat.name}, share of the total` : stat.name;
+        const title = { text: name, subtext: printable(dataset.map.name) };
         chart.setOption(statChartOption(dataset, stat.id, { ...settings, compact: false, title }));
         const url = chart.getDataURL({
             type: "png",
