@@ -312,3 +312,35 @@ test("all charts download as PNG images in one ZIP file", async ({ page }) => {
     expect(new Set(names).size).toBe(14);
     await expect(page.getByTestId("download-all")).toBeEnabled();
 });
+
+test("every chart switches to stacked shares from the overview or a chart's page, and stays so", async ({ page }) => {
+    await choose(page, RESOURCES);
+    const type = page.getByTestId("chart-type");
+    await expect(type).toHaveValue("lines");
+    await type.selectOption("share");
+    // Day 1: red has 2,500 of the 23,600 gold all players have (info.txt).
+    const gold = page.getByTestId("table-gold").first();
+    await expect(gold.locator("caption")).toContainText("share of the total");
+    await expect(gold.locator("tbody tr").nth(0).locator("td").nth(0)).toHaveText("10.6%");
+    // Every day's shares add up to 100%, in every chart.
+    for (const id of ["gold", "wood", "heroes"]) {
+        const cells = await page.getByTestId(`table-${id}`).first().locator("tbody tr").nth(1).locator("td").allTextContents();
+        expect(cells).toHaveLength(8);
+        const total = cells.reduce((sum, text) => sum + parseFloat(text), 0);
+        expect(Math.abs(total - 100), `${id}: ${cells.join(" ")}`).toBeLessThan(0.5);
+    }
+    // No one has any wood on day 1, so there is no share to show.
+    const wood = page.getByTestId("table-wood").first().locator("tbody tr").nth(0).locator("td");
+    await expect(wood).toHaveText(Array(8).fill("—"));
+    // The chart's page shows the same choice, and switching back there switches the overview too.
+    await page.getByTestId("card-wood").click();
+    await expect(page.getByTestId("chart-type")).toHaveValue("share");
+    // Red has 15 of the 37 wood on day 2.
+    await expect(page.getByTestId("table-wood").locator("tbody tr").nth(1).locator("td").nth(0)).toHaveText("40.5%");
+    await page.reload();
+    await expect(page.getByTestId("chart-type")).toHaveValue("share");
+    await page.getByTestId("chart-type").selectOption("lines");
+    await page.getByRole("link", { name: "← All charts" }).click();
+    await expect(page.getByTestId("chart-type")).toHaveValue("lines");
+    await expect(page.getByTestId("table-gold").first().locator("tbody tr").nth(0)).toContainText("2,500");
+});

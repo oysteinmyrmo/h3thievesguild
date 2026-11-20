@@ -86,28 +86,34 @@ describe("remembering the last game", () => {
 
 describe("remembering the chart options", () => {
     it("numbers the days on the x-axis until told otherwise", () => {
-        expect(DEFAULT_OPTIONS.xAxis).toBe("day");
+        expect(DEFAULT_OPTIONS).toEqual({ xAxis: "day", chartType: "lines" });
         expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
     });
 
     it("stores and restores them, apart from the game", () => {
-        expect(rememberOptions({ xAxis: "date" })).toBe(true);
-        expect(recallOptions()).toEqual({ xAxis: "date" });
+        expect(rememberOptions({ xAxis: "date", chartType: "share" })).toBe(true);
+        expect(recallOptions()).toEqual({ xAxis: "date", chartType: "share" });
         forgetGame();
-        expect(recallOptions()).toEqual({ xAxis: "date" });
+        expect(recallOptions()).toEqual({ xAxis: "date", chartType: "share" });
+    });
+
+    it("keeps options stored before there was a chart type, with lines", () => {
+        localStorage.setItem(OPTIONS_KEY, '{"xAxis":"date"}');
+        expect(recallOptions()).toEqual({ xAxis: "date", chartType: "lines" });
     });
 
     it("falls back to the default for anything not valid", () => {
-        for (const text of ["not json", "null", "7", "{}", '{"xAxis":"weeks"}', '{"xAxis":1}']) {
+        for (const text of ["not json", "null", "7", "{}", '{"xAxis":"weeks"}', '{"xAxis":1}', '{"chartType":"pie"}']) {
             localStorage.setItem(OPTIONS_KEY, text);
             expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
         }
-        expect(cleanOptions({ xAxis: "date", other: 1 })).toEqual({ xAxis: "date" });
+        expect(cleanOptions({ xAxis: "date", other: 1 })).toEqual({ xAxis: "date", chartType: "lines" });
+        expect(cleanOptions({ xAxis: "nope", chartType: "share" })).toEqual({ xAxis: "day", chartType: "share" });
     });
 
     it("copes without storage, or with storage that fails", () => {
         vi.stubGlobal("localStorage", undefined);
-        expect(rememberOptions({ xAxis: "date" })).toBe(false);
+        expect(rememberOptions({ xAxis: "date", chartType: "share" })).toBe(false);
         expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
         vi.unstubAllGlobals();
         const spy = vi.spyOn(localStorage, "getItem").mockImplementation(() => {

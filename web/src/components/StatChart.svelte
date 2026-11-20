@@ -1,10 +1,10 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { statChartOption, visiblePlayers, playerValues } from "../lib/chart";
+    import { playerShares, statChartOption, visiblePlayers, playerValues } from "../lib/chart";
     import { echarts } from "../lib/echarts";
-    import { axisLabel, formatValue } from "../lib/format";
+    import { axisLabel, formatShare, formatValue } from "../lib/format";
     import { displayName, type PlayerNames } from "../lib/names";
-    import type { XAxisMode } from "../lib/options";
+    import type { ChartOptions } from "../lib/options";
     import { theme } from "../lib/theme.svelte";
     import type { Dataset, StatInfo } from "../lib/wasm/pkg/h3wasm";
 
@@ -14,14 +14,14 @@
         hidden,
         names,
         compact,
-        xAxis,
+        options,
     }: {
         dataset: Dataset;
         stat: StatInfo;
         hidden: ReadonlySet<string>;
         names: PlayerNames;
         compact: boolean;
-        xAxis: XAxisMode;
+        options: ChartOptions;
     } = $props();
 
     let element: HTMLDivElement;
@@ -38,18 +38,25 @@
     });
 
     $effect(() => {
-        const settings = { compact, hidden, names, theme: theme.current, xAxis };
+        const settings = { compact, hidden, names, theme: theme.current, ...options };
         chart?.setOption(statChartOption(dataset, stat.id, settings), { notMerge: true });
     });
 
     const players = $derived(visiblePlayers(dataset, hidden));
+    const shares = $derived(options.chartType === "share" ? playerShares(dataset, players, stat.id) : undefined);
+
+    /** A table cell: the share in the stacked view, otherwise the value. */
+    function cell(playerId: string, values: (number | null)[], day: number): string {
+        // A player out of the game has no share, rather than 0%.
+        return shares && values[day] !== null ? formatShare(shares.get(playerId)?.[day]) : formatValue(values[day]);
+    }
 </script>
 
 <div class="chart" bind:this={element} data-testid={`chart-${stat.id}`}></div>
 <!-- The values as a table, for screen readers. A table cannot be shrunk itself, so its wrapper is. -->
 <div class="sr-only">
 <table data-testid={`table-${stat.id}`}>
-    <caption>{stat.name} by day</caption>
+    <caption>{stat.name} by day{shares ? ", as each player's share of the total" : ""}</caption>
     <thead>
         <tr>
             <th scope="col">Day</th>
@@ -59,8 +66,8 @@
     <tbody>
         {#each dataset.days as day, i (day.day)}
             <tr>
-                <th scope="row">{axisLabel(day, xAxis)}</th>
-                {#each players as player (player.id)}<td>{formatValue(playerValues(dataset, player, stat.id)[i])}</td>{/each}
+                <th scope="row">{axisLabel(day, options.xAxis)}</th>
+                {#each players as player (player.id)}<td>{cell(player.id, playerValues(dataset, player, stat.id), i)}</td>{/each}
             </tr>
         {/each}
     </tbody>

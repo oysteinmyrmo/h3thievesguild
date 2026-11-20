@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { ELIMINATED_SERIES, MISSING_SERIES, statChartOption, tooltipHtml, type ChartSettings } from "../../src/lib/chart";
+import {
+    ELIMINATED_SERIES,
+    MISSING_SERIES,
+    dayShares,
+    statChartOption,
+    tooltipHtml,
+    type ChartSettings,
+} from "../../src/lib/chart";
 import { RESOURCES, dataset } from "./saves";
 
 const theme = { text: "#111", muted: "#666", gridLine: "#ddd", missing: "rgba(0,0,0,0.1)", tooltipBackground: "#fff" };
 // Month-week-day labels, so the tests can tell days apart from counts.
-const detail: ChartSettings = { compact: false, hidden: new Set(), names: {}, theme, xAxis: "date" };
-const compact: ChartSettings = { compact: true, hidden: new Set(), names: {}, theme, xAxis: "date" };
+const detail: ChartSettings = { compact: false, hidden: new Set(), names: {}, theme, xAxis: "date", chartType: "lines" };
+const compact: ChartSettings = { compact: true, hidden: new Set(), names: {}, theme, xAxis: "date", chartType: "lines" };
+const share: ChartSettings = { ...detail, chartType: "share" };
 
 type Marker = {
     xAxis: string;
@@ -19,6 +27,9 @@ type Series = {
     data: (number | null)[];
     color?: string;
     showSymbol?: boolean;
+    stack?: string;
+    emphasis?: { focus?: string };
+    areaStyle?: object;
     markLine?: { data: Marker[]; label: { show: boolean } };
     markArea?: { data: { xAxis: string }[][] };
 };
@@ -142,6 +153,13 @@ describe("statChartOption", () => {
         expect(statChartOption(many, "gold", detail).title).toEqual({ show: false });
     });
 
+    it("does not fade the other players when one is hovered, in either view", () => {
+        for (const settings of [detail, share]) {
+            const lines = series(statChartOption(full, "gold", settings)).filter((s) => s.id !== undefined);
+            expect(lines.every((s) => s.emphasis?.focus === "none")).toBe(true);
+        }
+    });
+
     it("uses whole numbers on the value axis", () => {
         expect(statChartOption(full, "heroes", detail).yAxis.minInterval).toBe(1);
     });
@@ -166,6 +184,76 @@ describe("statChartOption", () => {
     it("gives every player an empty row for an unknown statistic", () => {
         const lines = series(statChartOption(full, "nonsense", detail));
         expect(lines[0]!.data).toEqual([null, null, null]);
+    });
+});
+
+describe("the stacked share view", () => {
+    const full = dataset(RESOURCES);
+    const lines = (settings: ChartSettings, data = full) => series(statChartOption(data, "gold", settings)).filter((s) => s.id !== undefined);
+    const sum = (values: (number | null)[]) => values.reduce<number>((total, v) => total + (v ?? 0), 0);
+
+    it("stacks each player's share of the total, adding up to 100% every day", () => {
+        const stacked = lines(share);
+        expect(stacked).toHaveLength(8);
+        expect(stacked.every((s) => s.stack === "share" && s.areaStyle !== undefined)).toBe(true);
+        for (let day = 0; day < 3; day++) {
+            expect(sum(stacked.map((s) => s.data[day]!))).toBeCloseTo(100, 9);
+        }
+        // Each share is the player's gold over the total gold that day.
+        const gold = full.players.map((p) => p.values.gold!);
+        for (const [i, s] of stacked.entries()) {
+            const total = sum(gold.map((row) => row[0]!));
+            expect(s.data[0]).toBeCloseTo((gold[i]![0]! / total) * 100, 9);
+        }
+        // Blue is out on day 3: no gold, so no share.
+        expect(stacked.find((s) => s.id === "blue")!.data[2]).toBe(0);
+    });
+
+    it("shows a 0-100% axis and keeps the lines view as it was", () => {
+        const option = statChartOption(full, "gold", share);
+        expect(option.yAxis).toMatchObject({ min: 0, max: 100 });
+        expect((option.yAxis.axisLabel.formatter as (v: number) => string)(50)).toBe("50%");
+        const plain = lines(detail);
+        expect(plain.every((s) => s.stack === undefined && s.areaStyle === undefined)).toBe(true);
+        expect(plain.find((s) => s.id === "teal")!.data).toEqual([2500, 5950, 6200]);
+    });
+
+    it("leaves out hidden players from the total", () => {
+        const two = lines({ ...share, hidden: new Set(["tan", "green", "orange", "purple", "teal", "pink"]) });
+        const [red, blue] = full.players.map((p) => p.values.gold!);
+        expect(two.map((s) => s.id)).toEqual(["red", "blue"]);
+        expect(two[0]!.data[0]).toBeCloseTo((red![0]! / (red![0]! + blue![0]!)) * 100, 9);
+        expect(sum(two.map((s) => s.data[0]!))).toBeCloseTo(100, 9);
+        // On day 3 blue is out, so red has it all.
+        expect(two[0]!.data[2]).toBe(100);
+    });
+
+    it("has no shares on a day without a save or with a total of 0", () => {
+        const gap = dataset([RESOURCES[0]!, RESOURCES[2]!]);
+        expect(lines(share, gap).every((s) => s.data[1] === null)).toBe(true);
+        expect(dayShares(gap, gap.players, "gold", 1).every((v) => v === null)).toBe(true);
+        // A statistic no player has any of: nothing to divide.
+        expect(dayShares(full, full.players, "nonsense", 0).every((v) => v === null)).toBe(true);
+        expect(dayShares(full, full.players, "gold", 99).every((v) => v === null)).toBe(true);
+    });
+
+    it("shows each player's share and value in the tooltip", () => {
+        const two = full.players.slice(0, 2);
+        const html = tooltipHtml(full, "gold", 0, two, {}, true);
+        // Red 2,500 and blue 3,400 gold on day 1.
+        expect(html).toContain("Red: <strong>42.4%</strong> (2,500)");
+        expect(html).toContain("Blue: <strong>57.6%</strong> (3,400)");
+        const gap = dataset([RESOURCES[0]!, RESOURCES[2]!]);
+        expect(tooltipHtml(gap, "gold", 1, gap.players, {}, true)).toContain("Red: <strong>—</strong><br>");
+        // Out of the game on day 3, blue has no gold that day and no share.
+        expect(tooltipHtml(full, "gold", 2, full.players, {}, true)).toContain("Blue: <strong>0.0%</strong> (0)");
+        // After that day a player has no value at all: no share, and the others still make 100%.
+        const after = {
+            ...full,
+            players: full.players.map((p) => (p.id === "tan" ? { ...p, values: { ...p.values, gold: [2500, 3100, null] } } : p)),
+        };
+        expect(tooltipHtml(after, "gold", 2, after.players, {}, true)).toContain("Tan: <strong>—</strong><br>");
+        expect(sum(dayShares(after, after.players, "gold", 2))).toBeCloseTo(100, 9);
     });
 });
 

@@ -1,8 +1,8 @@
 // ECharts options for a player statistic: one line per player in the player's colour.
 
-import { axisLabel, escapeHtml, formatAxis, formatValue, longDate } from "./format";
+import { axisLabel, escapeHtml, formatAxis, formatShare, formatValue, longDate } from "./format";
 import { displayName, type PlayerNames } from "./names";
-import type { XAxisMode } from "./options";
+import type { ChartType, XAxisMode } from "./options";
 import type { ChartTheme } from "./theme.svelte";
 import type { Dataset, PlayerSeries } from "./wasm/pkg/h3wasm";
 
@@ -16,6 +16,8 @@ export interface ChartSettings {
     theme: ChartTheme;
     /** What the x-axis shows for each day. */
     xAxis: XAxisMode;
+    /** A line per player, or stacked areas of each player's share of the total. */
+    chartType: ChartType;
     /** For an image: a title above the chart, no zoom bar and no animation. */
     title?: { text: string; subtext: string };
 }
@@ -35,13 +37,37 @@ export function playerValues(dataset: Dataset, player: PlayerSeries, statId: str
     return player.values[statId] ?? dataset.days.map(() => null);
 }
 
-/** HTML for the tooltip of one day. */
+/**
+ * Each player's share of the players' total on one day, in percent, in the order of `players`.
+ *
+ * A player without a value on a day with a save is out of the game, or not yet in it, and has
+ * no share. A day without a save, or with a total of 0, has no shares at all: there is nothing
+ * to divide.
+ */
+export function dayShares(dataset: Dataset, players: PlayerSeries[], statId: string, dayIndex: number): (number | null)[] {
+    const day = dataset.days[dayIndex];
+    const values = players.map((p) => playerValues(dataset, p, statId)[dayIndex] ?? 0);
+    const total = values.reduce((sum, v) => sum + v, 0);
+    if (!day || day.file === null || total === 0) {
+        return players.map(() => null);
+    }
+    return values.map((v) => (v / total) * 100);
+}
+
+/** Each player's share of the total on every day, in percent, by player ID. */
+export function playerShares(dataset: Dataset, players: PlayerSeries[], statId: string): Map<string, (number | null)[]> {
+    const byDay = dataset.days.map((_, i) => dayShares(dataset, players, statId, i));
+    return new Map(players.map((p, j) => [p.id, byDay.map((shares) => shares[j] ?? null)]));
+}
+
+/** HTML for the tooltip of one day. With `share`, each player's share of the total comes first. */
 export function tooltipHtml(
     dataset: Dataset,
     statId: string,
     dayIndex: number,
     players: PlayerSeries[],
     names: PlayerNames = {},
+    share = false,
 ): string {
     const day = dataset.days[dayIndex];
     if (!day) {
@@ -50,10 +76,18 @@ export function tooltipHtml(
     const source = day.file === null ? "No save for this day" : escapeHtml(day.file);
     const date = `Day ${day.day}: ${longDate(day)}`;
     const header = `<strong>${escapeHtml(date)}</strong><br><span class="tooltip-file">${source}</span>`;
-    const rows = players.map((p) => {
-        const value = formatValue(playerValues(dataset, p, statId)[dayIndex]);
+    const shares = share ? dayShares(dataset, players, statId, dayIndex) : [];
+    const rows = players.map((p, i) => {
+        const raw = playerValues(dataset, p, statId)[dayIndex];
+        const value = formatValue(raw);
         const marker = `<span class="tooltip-marker" style="background:${escapeHtml(p.color)}"></span>`;
-        return `${marker}${escapeHtml(displayName(p, names))}: <strong>${value}</strong>`;
+        // A player out of the game has no share, rather than 0%.
+        const shown = !share
+            ? `<strong>${value}</strong>`
+            : raw === null || raw === undefined
+              ? `<strong>—</strong>`
+              : `<strong>${formatShare(shares[i])}</strong> (${value})`;
+        return `${marker}${escapeHtml(displayName(p, names))}: ${shown}`;
     });
     return [header, ...rows].join("<br>");
 }
@@ -153,20 +187,33 @@ function missingDaysArea(dataset: Dataset, settings: ChartSettings) {
 export function statChartOption(dataset: Dataset, statId: string, settings: ChartSettings) {
     const { compact, theme, title } = settings;
     const players = visiblePlayers(dataset, settings.hidden);
+    const share = settings.chartType === "share";
+    const shares = share ? playerShares(dataset, players, statId) : undefined;
     // Series are named by colour ID, which is unique; the legend shows the player's name. Two
     // players may be given the same name.
     const series: object[] = players.map((player) => ({
         id: player.id,
         name: player.id,
         type: "line",
-        data: playerValues(dataset, player, statId),
+        data: shares?.get(player.id) ?? playerValues(dataset, player, statId),
         connectNulls: false,
         color: player.color,
-        // Shown in the small charts too, so a value between two missing days is visible.
-        showSymbol: true,
-        symbolSize: compact ? 3 : 6,
-        lineStyle: { width: compact ? 1.5 : 2.5 },
-        emphasis: { focus: "series" },
+        ...(share
+            ? {
+                  // The areas stack up to 100% on every day with a save.
+                  stack: "share",
+                  areaStyle: { opacity: 0.85 },
+                  showSymbol: false,
+                  lineStyle: { width: compact ? 0.5 : 1 },
+              }
+            : {
+                  // Shown in the small charts too, so a value between two missing days is visible.
+                  showSymbol: true,
+                  symbolSize: compact ? 3 : 6,
+                  lineStyle: { width: compact ? 1.5 : 2.5 },
+              }),
+        // Hovering a player does not fade the others.
+        emphasis: { focus: "none" },
     }));
     const eliminated = eliminationSeries(dataset, players, settings);
     if (eliminated) {
@@ -210,7 +257,7 @@ export function statChartOption(dataset: Dataset, statId: string, settings: Char
             textStyle: { color: theme.text },
             formatter: (params: { dataIndex: number }[] | { dataIndex: number }) => {
                 const first = Array.isArray(params) ? params[0] : params;
-                return first ? tooltipHtml(dataset, statId, first.dataIndex, players, settings.names) : "";
+                return first ? tooltipHtml(dataset, statId, first.dataIndex, players, settings.names, share) : "";
             },
         },
         xAxis: {
@@ -220,13 +267,22 @@ export function statChartOption(dataset: Dataset, statId: string, settings: Char
             axisLabel: { color: theme.muted, hideOverlap: true },
             axisLine: { lineStyle: { color: theme.gridLine } },
         },
-        yAxis: {
-            type: "value",
-            // Every statistic is a whole number.
-            minInterval: 1,
-            axisLabel: { color: theme.muted, formatter: formatAxis },
-            splitLine: { lineStyle: { color: theme.gridLine } },
-        },
+        yAxis: share
+            ? {
+                  type: "value",
+                  min: 0,
+                  max: 100,
+                  interval: 25,
+                  axisLabel: { color: theme.muted, formatter: (value: number) => `${value}%` },
+                  splitLine: { lineStyle: { color: theme.gridLine } },
+              }
+            : {
+                  type: "value",
+                  // Every statistic is a whole number.
+                  minInterval: 1,
+                  axisLabel: { color: theme.muted, formatter: formatAxis },
+                  splitLine: { lineStyle: { color: theme.gridLine } },
+              },
         dataZoom: zoom ? [{ type: "inside" }, { type: "slider", bottom: 16 }] : [],
         series,
     };

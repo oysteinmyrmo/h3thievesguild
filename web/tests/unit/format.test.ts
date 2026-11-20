@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { axisLabel, daySpan, escapeHtml, formatAxis, formatValue, longDate, missingDaysText } from "../../src/lib/format";
+import { axisLabel, daySpan, escapeHtml, formatShare, formatAxis, formatValue, longDate, missingDaysText } from "../../src/lib/format";
 import { splitMessage } from "../../src/lib/message";
 import { RESOURCES, dataset } from "./saves";
 
@@ -11,6 +11,9 @@ describe("formatting", () => {
         expect(formatValue(undefined)).toBe("—");
         expect(formatAxis(9999)).toBe("9,999");
         expect(formatAxis(12_500)).toBe("12.5K");
+        expect(formatShare(42.3728)).toBe("42.4%");
+        expect(formatShare(100)).toBe("100.0%");
+        expect(formatShare(null)).toBe("—");
     });
 
     it("writes dates and spans", () => {
