@@ -15,8 +15,9 @@
     color-scheme: light;
 }
 
+/* Dark: chosen in the sidebar, or the system's choice when the theme is left to the system. */
 @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
         --bg: #16171a;
         --surface: #1f2024;
         --sidebar: #1a1b1e;
@@ -31,6 +32,22 @@
         --missing: rgba(160, 160, 160, 0.12);
         color-scheme: dark;
     }
+}
+
+:root[data-theme="dark"] {
+    --bg: #16171a;
+    --surface: #1f2024;
+    --sidebar: #1a1b1e;
+    --text: #ececf1;
+    --text-muted: #9a9aa3;
+    --border: #34353b;
+    --accent: #6c9cf0;
+    --accent-text: #0e1116;
+    --danger: #f2a49d;
+    --danger-bg: #3a1f1d;
+    --warning-bg: #3a3220;
+    --missing: rgba(160, 160, 160, 0.12);
+    color-scheme: dark;
 }
 
 * {

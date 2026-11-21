@@ -2,11 +2,12 @@
 // unavailable or full; the page then simply does not remember.
 
 import { cleanNames, type PlayerNames } from "./names";
-import { cleanOptions, type ChartOptions } from "./options";
+import { cleanOptions, cleanThemeMode, type ChartOptions, type ThemeMode } from "./options";
 import type { Dataset } from "./wasm/pkg/h3wasm";
 
 export const STORAGE_KEY = "h3thievesguild.lastGame.v1";
 export const OPTIONS_KEY = "h3thievesguild.chartOptions.v1";
+export const THEME_KEY = "h3thievesguild.theme.v1";
 
 export interface StoredGame {
     dataset: Dataset;
@@ -73,6 +74,25 @@ export function recallOptions(): ChartOptions {
         return cleanOptions(text ? JSON.parse(text) : undefined);
     } catch {
         return cleanOptions(undefined);
+    }
+}
+
+/** Store the light or dark choice. Returns whether it could. */
+export function rememberThemeMode(mode: ThemeMode): boolean {
+    try {
+        localStorage.setItem(THEME_KEY, mode);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** The stored light or dark choice, or the system's if there is none. */
+export function recallThemeMode(): ThemeMode {
+    try {
+        return cleanThemeMode(localStorage.getItem(THEME_KEY));
+    } catch {
+        return "system";
     }
 }
 

@@ -4,11 +4,14 @@ import { DEFAULT_OPTIONS, cleanOptions } from "../../src/lib/options";
 import {
     OPTIONS_KEY,
     STORAGE_KEY,
+    THEME_KEY,
     forgetGame,
     recallGame,
     recallOptions,
+    recallThemeMode,
     rememberGame,
     rememberOptions,
+    rememberThemeMode,
 } from "../../src/lib/storage";
 import { RESOURCES, dataset } from "./saves";
 
@@ -121,5 +124,34 @@ describe("remembering the chart options", () => {
         });
         expect(recallOptions()).toEqual(DEFAULT_OPTIONS);
         spy.mockRestore();
+    });
+});
+
+describe("remembering the theme", () => {
+    it("follows the system until told otherwise", () => {
+        expect(recallThemeMode()).toBe("system");
+    });
+
+    it("stores and restores light or dark, apart from the game", () => {
+        for (const mode of ["dark", "light", "system"] as const) {
+            expect(rememberThemeMode(mode)).toBe(true);
+            expect(recallThemeMode()).toBe(mode);
+        }
+        rememberThemeMode("dark");
+        forgetGame();
+        expect(recallThemeMode()).toBe("dark");
+    });
+
+    it("falls back to the system for anything not valid", () => {
+        for (const text of ["", "Dark", "blue", '"dark"', "null"]) {
+            localStorage.setItem(THEME_KEY, text);
+            expect(recallThemeMode()).toBe("system");
+        }
+    });
+
+    it("copes without storage", () => {
+        vi.stubGlobal("localStorage", undefined);
+        expect(rememberThemeMode("dark")).toBe(false);
+        expect(recallThemeMode()).toBe("system");
     });
 });
