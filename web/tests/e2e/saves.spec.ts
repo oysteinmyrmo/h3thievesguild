@@ -21,6 +21,7 @@ async function choose(page: Page, files: ReturnType<typeof save>[]) {
 const CATEGORY: Record<string, string> = {
     ...Object.fromEntries(["gold", "wood", "ore", "mercury", "sulfur", "crystal", "gems"].map((id) => [id, "Economy"])),
     armyStrength: "Army",
+    mapExplored: "Map",
     ...Object.fromEntries(
         ["heroes", "heroesOnMap", "totalHeroLevels", "highestHeroLevel", "totalExperience", "towns"].map((id) => [id, "Kingdom"]),
     ),
@@ -71,7 +72,7 @@ test("the dropdowns choose the category and the chart, and Back returns to the o
     await choose(page, RESOURCES);
     const category = page.getByTestId("category-select");
     const chart = page.getByTestId("chart-select");
-    await expect(category.locator("option")).toHaveText(["Economy", "Army", "Kingdom"]);
+    await expect(category.locator("option")).toHaveText(["Economy", "Army", "Kingdom", "Map"]);
     // The chart dropdown lists the charts of the chosen category only.
     await expect(chart.locator("option")).toHaveText(["Gold", "Wood", "Ore", "Mercury", "Sulfur", "Crystal", "Gems"]);
     await chart.selectOption("ore");
@@ -243,7 +244,7 @@ test("the arrows step to the previous and next chart, across categories and wrap
     const next = page.getByTestId("next-chart");
     // The arrows name the charts they lead to, with the category when it is another one.
     await expect(previous).toContainText("Previous");
-    await expect(previous).toContainText("Towns (Kingdom)");
+    await expect(previous).toContainText("Map explored (Map)");
     await expect(next).toContainText("Next");
     await expect(next).toContainText("Wood");
     // The arrows keep their size whatever the names.
@@ -254,8 +255,8 @@ test("the arrows step to the previous and next chart, across categories and wrap
     await expect(page).toHaveURL(/#\/saves\/wood$/);
     await previous.click();
     await previous.click();
-    await expect(page).toHaveURL(/#\/saves\/towns$/);
-    await expect(page.getByTestId("category-select")).toHaveValue("Kingdom");
+    await expect(page).toHaveURL(/#\/saves\/mapExplored$/);
+    await expect(page.getByTestId("category-select")).toHaveValue("Map");
     await next.click();
     await expect(page).toHaveURL(/#\/saves\/gold$/);
     // From the last chart of a category to the first of the next.
@@ -349,10 +350,10 @@ test("all charts download as PNG images in one ZIP file", async ({ page }) => {
     // Read the central directory: one PNG image per chart.
     const end = zip.length - 22;
     expect(zip.readUInt32LE(end)).toBe(0x06054b50);
-    expect(zip.readUInt16LE(end + 10)).toBe(14);
+    expect(zip.readUInt16LE(end + 10)).toBe(15);
     let pos = zip.readUInt32LE(end + 16);
     const names: string[] = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 15; i++) {
         const nameLength = zip.readUInt16LE(pos + 28);
         const local = zip.readUInt32LE(pos + 42);
         names.push(zip.subarray(pos + 46, pos + 46 + nameLength).toString("utf8"));
@@ -362,7 +363,7 @@ test("all charts download as PNG images in one ZIP file", async ({ page }) => {
     }
     expect(names).toContain("SaveGameTester_Resources - Gold.png");
     expect(names).toContain("SaveGameTester_Resources - Kingdom army strength.png");
-    expect(new Set(names).size).toBe(14);
+    expect(new Set(names).size).toBe(15);
     await expect(page.getByTestId("download-all")).toBeEnabled();
 });
 
@@ -422,10 +423,24 @@ test("the theme follows the system, or is light or dark as chosen, and is rememb
     await pressed("dark");
     await expect.poll(background).toBe(DARK);
     await choose(page, RESOURCES);
-    await expect(page.getByTestId("card-gold").locator("canvas").first()).toBeVisible();
+    await expect(page.getByTestId("chart-gold").locator("canvas").first()).toBeVisible();
 
     // Back to the system's choice.
     await page.getByTestId("theme-system").click();
     await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.*/);
     await expect.poll(background).toBe(LIGHT);
+});
+
+test("the Map category shows how much of the map each player has explored", async ({ page }) => {
+    // test_data/map_visibility: a small map with an underground level, 2592 tiles; see its info.txt.
+    const files = ["[hotseat] 111.GM5", "[hotseat] 112.GM5", "[hotseat] 113.GM5"].map((f) => save("map_visibility", f));
+    await choose(page, files);
+    await page.getByTestId("category-select").selectOption("Map");
+    await expect(page.getByTestId("chart-select").locator("option")).toHaveText(["Map explored"]);
+    const rows = page.getByTestId("table-mapExplored").locator("tbody tr");
+    // Red: 97, 137 and 177 tiles. Orange: 577, 990 and 1265 tiles.
+    await expect(rows.nth(0).locator("td")).toHaveText(["3.7%", "5.3%", "8.7%", "13.5%", "22.3%"]);
+    await expect(rows.nth(1).locator("td").nth(0)).toHaveText("5.3%");
+    await expect(rows.nth(2).locator("td").nth(0)).toHaveText("6.8%");
+    await expect(rows.nth(2).locator("td").nth(4)).toHaveText("48.8%");
 });

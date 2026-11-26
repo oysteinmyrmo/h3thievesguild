@@ -20,6 +20,19 @@ pub struct StatInfo {
     /// Category to show it under, such as "Economy". The page lists the categories in the
     /// order they first appear.
     pub group: &'static str,
+    /// What the values count.
+    pub unit: Unit,
+}
+
+/// What a statistic's values count.
+#[cfg_attr(feature = "typescript", derive(tsify::Tsify))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Unit {
+    /// Whole things: gold, heroes, levels and so on.
+    Count,
+    /// A percentage, from 0 to 100.
+    Percent,
 }
 
 /// A player statistic and how to read it.
@@ -35,7 +48,26 @@ pub(crate) struct HeroStat {
 }
 
 const fn info(id: &'static str, name: &'static str, group: &'static str) -> StatInfo {
-    StatInfo { id, name, group }
+    StatInfo {
+        id,
+        name,
+        group,
+        unit: Unit::Count,
+    }
+}
+
+const fn percent(id: &'static str, name: &'static str, group: &'static str) -> StatInfo {
+    StatInfo {
+        id,
+        name,
+        group,
+        unit: Unit::Percent,
+    }
+}
+
+/// The share of the map the player has seen, in percent.
+fn map_explored(player: &Player, save: &SaveFile) -> f64 {
+    save.visibility.share_seen(player.color()) * 100.0
 }
 
 #[expect(
@@ -125,6 +157,10 @@ pub(crate) const PLAYER_STATS: &[PlayerStat] = &[
     PlayerStat {
         info: info("towns", "Towns", "Kingdom"),
         read: |p, _| count(p.towns().len()),
+    },
+    PlayerStat {
+        info: percent("mapExplored", "Map explored", "Map"),
+        read: map_explored,
     },
 ];
 

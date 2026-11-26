@@ -36,4 +36,8 @@ export function dataset(inputs: SaveInput[]): Dataset {
     return result.dataset;
 }
 
+export const MAP_VISIBILITY = ["[hotseat] 111.GM5", "[hotseat] 112.GM5", "[hotseat] 113.GM5"].map((f) =>
+    save("map_visibility", f),
+);
+
 export const RESOURCES = ["[hotseat] 111.GM8", "[hotseat] 112.GM8", "[hotseat] 113.GM5"].map((f) => save("resources", f));

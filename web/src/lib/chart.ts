@@ -4,7 +4,7 @@ import { axisLabel, escapeHtml, formatAxis, formatShare, formatValue, longDate }
 import { displayName, type PlayerNames } from "./names";
 import type { ChartType, XAxisMode } from "./options";
 import type { ChartTheme } from "./theme.svelte";
-import type { Dataset, PlayerSeries } from "./wasm/pkg/h3wasm";
+import type { Dataset, PlayerSeries, Unit } from "./wasm/pkg/h3wasm";
 
 export interface ChartSettings {
     /** Small chart in the overview grid: no legend, labels or zoom. */
@@ -30,6 +30,11 @@ export const ELIMINATED_SERIES = "Eliminated";
 
 export function visiblePlayers(dataset: Dataset, hidden: ReadonlySet<string>): PlayerSeries[] {
     return dataset.players.filter((p) => !hidden.has(p.id));
+}
+
+/** What a statistic's values count: whole things, or a percentage. */
+export function unitOf(dataset: Dataset, statId: string): Unit {
+    return dataset.playerStats.find((s) => s.id === statId)?.unit ?? "count";
 }
 
 /** The row of values of a statistic for a player, `null` on days without a value. */
@@ -79,7 +84,7 @@ export function tooltipHtml(
     const shares = share ? dayShares(dataset, players, statId, dayIndex) : [];
     const rows = players.map((p, i) => {
         const raw = playerValues(dataset, p, statId)[dayIndex];
-        const value = formatValue(raw);
+        const value = formatValue(raw, unitOf(dataset, statId));
         const marker = `<span class="tooltip-marker" style="background:${escapeHtml(p.color)}"></span>`;
         // A player out of the game has no share, rather than 0%.
         const shown = !share
@@ -276,13 +281,20 @@ export function statChartOption(dataset: Dataset, statId: string, settings: Char
                   axisLabel: { color: theme.muted, formatter: (value: number) => `${value}%` },
                   splitLine: { lineStyle: { color: theme.gridLine } },
               }
-            : {
-                  type: "value",
-                  // Every statistic is a whole number.
-                  minInterval: 1,
-                  axisLabel: { color: theme.muted, formatter: formatAxis },
-                  splitLine: { lineStyle: { color: theme.gridLine } },
-              },
+            : unitOf(dataset, statId) === "percent"
+              ? {
+                    type: "value",
+                    min: 0,
+                    axisLabel: { color: theme.muted, formatter: (value: number) => `${value}%` },
+                    splitLine: { lineStyle: { color: theme.gridLine } },
+                }
+              : {
+                    type: "value",
+                    // Every other statistic is a whole number.
+                    minInterval: 1,
+                    axisLabel: { color: theme.muted, formatter: formatAxis },
+                    splitLine: { lineStyle: { color: theme.gridLine } },
+                },
         dataZoom: zoom ? [{ type: "inside" }, { type: "slider", bottom: 16 }] : [],
         series,
     };

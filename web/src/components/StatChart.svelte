@@ -48,7 +48,9 @@
     /** A table cell: the share in the stacked view, otherwise the value. */
     function cell(playerId: string, values: (number | null)[], day: number): string {
         // A player out of the game has no share, rather than 0%.
-        return shares && values[day] !== null ? formatShare(shares.get(playerId)?.[day]) : formatValue(values[day]);
+        return shares && values[day] !== null
+            ? formatShare(shares.get(playerId)?.[day])
+            : formatValue(values[day], stat.unit);
     }
 </script>
 

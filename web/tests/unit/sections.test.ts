@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import { categories, position } from "../../src/lib/sections";
 import { RESOURCES, dataset } from "./saves";
 
-const stat = (id: string, group: string) => ({ id, name: id.toUpperCase(), group });
+const stat = (id: string, group: string) => ({ id, name: id.toUpperCase(), group, unit: "count" as const });
 
 describe("categories", () => {
-    it("groups the player statistics as Economy, Army and Kingdom, in order", () => {
+    it("groups the player statistics as Economy, Army, Kingdom and Map, in order", () => {
         const stats = dataset(RESOURCES).playerStats;
         const result = categories(stats);
-        expect(result.map((c) => c.group)).toEqual(["Economy", "Army", "Kingdom"]);
-        expect(result.map((c) => c.stats.length)).toEqual([7, 1, 6]);
+        expect(result.map((c) => c.group)).toEqual(["Economy", "Army", "Kingdom", "Map"]);
+        expect(result.map((c) => c.stats.length)).toEqual([7, 1, 6, 1]);
+        expect(result[3]!.stats.map((s) => s.id)).toEqual(["mapExplored"]);
         expect(result[0]!.stats.map((s) => s.id)).toEqual(["gold", "wood", "ore", "mercury", "sulfur", "crystal", "gems"]);
         expect(result[2]!.stats.map((s) => s.id)).toEqual([
             "heroes", "heroesOnMap", "totalHeroLevels", "highestHeroLevel", "totalExperience", "towns",

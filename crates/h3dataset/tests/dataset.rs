@@ -76,7 +76,7 @@ fn check_shape(dataset: &Dataset) {
     // The player statistics come by category: each once, in this order, its statistics together.
     let mut groups: Vec<&str> = dataset.player_stats.iter().map(|s| s.group).collect();
     groups.dedup();
-    assert_eq!(groups, ["Economy", "Army", "Kingdom"]);
+    assert_eq!(groups, ["Economy", "Army", "Kingdom", "Map"]);
     let hero_stats: BTreeSet<&str> = dataset.hero_stats.iter().map(|s| s.id).collect();
     assert_eq!(hero_stats.len(), dataset.hero_stats.len(), "unique hero stat IDs");
     let ids: Vec<&str> = dataset.players.iter().map(|p| p.id.as_str()).collect();
@@ -525,7 +525,18 @@ fn json_has_the_shape_the_frontend_expects() {
         keys(&json["days"][0]),
         set(&["day", "month", "week", "dayOfWeek", "label", "file"])
     );
-    assert_eq!(keys(&json["playerStats"][0]), set(&["id", "name", "group"]));
+    assert_eq!(keys(&json["playerStats"][0]), set(&["id", "name", "group", "unit"]));
+    assert_eq!(json["playerStats"][0]["unit"], "count");
+    let explored = json["playerStats"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["id"] == "mapExplored")
+        .unwrap();
+    assert_eq!(
+        (&explored["group"], &explored["unit"]),
+        (&json!("Map"), &json!("percent"))
+    );
     assert_eq!(
         keys(&json["players"][0]),
         set(&["id", "name", "color", "eliminatedDay", "values"])
@@ -800,5 +811,24 @@ fn missing_days_serialize_with_null_files() {
             .as_str()
             .unwrap()
             .contains("Month 1, Week 1, Day 2")
+    );
+}
+
+#[test]
+fn map_explored_is_the_share_of_the_whole_map_each_player_has_seen() {
+    // test_data/map_visibility: 2592 tiles on two levels; see its info.txt.
+    let files = ["[hotseat] 111.GM5", "[hotseat] 112.GM5", "[hotseat] 113.GM5"];
+    let dataset = dataset_from("map_visibility", &files).unwrap();
+    check_shape(&dataset);
+    let percent = |tiles: [u32; 3]| tiles.map(|t| Some(f64::from(t) / 2592.0 * 100.0)).to_vec();
+    assert_eq!(values(&dataset, "red", "mapExplored"), percent([97, 137, 177]));
+    assert_eq!(values(&dataset, "blue", "mapExplored"), percent([137; 3]));
+    assert_eq!(values(&dataset, "tan", "mapExplored"), percent([225; 3]));
+    assert_eq!(values(&dataset, "green", "mapExplored"), percent([349; 3]));
+    assert_eq!(values(&dataset, "orange", "mapExplored"), percent([577, 990, 1265]));
+    let stat = dataset.player_stats.iter().find(|s| s.id == "mapExplored").unwrap();
+    assert_eq!(
+        (stat.name, stat.group, stat.unit),
+        ("Map explored", "Map", h3dataset::Unit::Percent)
     );
 }
