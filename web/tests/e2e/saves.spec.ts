@@ -344,3 +344,37 @@ test("every chart switches to stacked shares from the overview or a chart's page
     await expect(page.getByTestId("chart-type")).toHaveValue("lines");
     await expect(page.getByTestId("table-gold").first().locator("tbody tr").nth(0)).toContainText("2,500");
 });
+
+test("the theme follows the system, or is light or dark as chosen, and is remembered", async ({ page }) => {
+    const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const LIGHT = "rgb(245, 245, 247)";
+    const DARK = "rgb(22, 23, 26)";
+    const pressed = (mode: string) => expect(page.getByTestId(`theme-${mode}`)).toHaveAttribute("aria-pressed", "true");
+
+    await page.emulateMedia({ colorScheme: "light" });
+    await pressed("system");
+    expect(await background()).toBe(LIGHT);
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect.poll(background).toBe(DARK);
+
+    // Light or dark whatever the system says.
+    await page.getByTestId("theme-light").click();
+    await pressed("light");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect.poll(background).toBe(LIGHT);
+    await page.getByTestId("theme-dark").click();
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect.poll(background).toBe(DARK);
+
+    // Remembered, and the charts are drawn in the chosen theme.
+    await page.reload();
+    await pressed("dark");
+    await expect.poll(background).toBe(DARK);
+    await choose(page, RESOURCES);
+    await expect(page.getByTestId("card-gold").locator("canvas").first()).toBeVisible();
+
+    // Back to the system's choice.
+    await page.getByTestId("theme-system").click();
+    await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.*/);
+    await expect.poll(background).toBe(LIGHT);
+});

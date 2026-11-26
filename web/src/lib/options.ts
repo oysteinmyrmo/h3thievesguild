@@ -30,3 +30,17 @@ export function cleanOptions(value: unknown): ChartOptions {
     const chartType = CHART_TYPES.find((t) => t.value === options.chartType)?.value ?? DEFAULT_OPTIONS.chartType;
     return { xAxis, chartType };
 }
+
+/** Light or dark pages: as the system is set, or always one of them. */
+export type ThemeMode = "system" | "light" | "dark";
+
+export const THEME_MODES: readonly { value: ThemeMode; label: string }[] = [
+    { value: "system", label: "System" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+];
+
+/** A theme from untrusted storage, or the system's if it is not valid. */
+export function cleanThemeMode(value: unknown): ThemeMode {
+    return THEME_MODES.find((m) => m.value === value)?.value ?? "system";
+}
