@@ -14,6 +14,8 @@
 //! 3. The eight player records end right where the town block starts. Each record starts with
 //!    its player index, and its hero and town IDs must be in range.
 //! 4. The date is a fixed distance after the end of the hero array, [`Format::date_offset`].
+//! 5. The tiles each player has seen follow a fixed distance after the date; see
+//!    [`crate::visibility`].
 
 use std::fmt;
 use std::io::Read;
@@ -27,6 +29,7 @@ use crate::id_type;
 use crate::player::{self, MAX_PLAYERS, PLAYER_RECORD_SIZE, PlayerData};
 use crate::reader::{OutOfBounds, Reader, record_pos};
 use crate::town::{self, MAX_TOWNS, Town};
+use crate::visibility::{self, Visibility};
 
 /// Magic bytes of a scenario save, including the trailing null byte.
 pub const HEADER_NORMAL: &[u8; 6] = b"H3SVG\0";
@@ -300,14 +303,30 @@ pub fn find_town_count(data: &[u8], heroes: usize) -> Option<usize> {
     best.map(|(pos, _)| pos)
 }
 
-/// The date stored after the hero array that ends at `heroes_end`.
-fn read_date(data: &[u8], heroes_end: usize, format: Format) -> Result<Date, Error> {
-    let pos = heroes_end.checked_add(format.date_offset).ok_or(Error::Truncated {
+/// Where the date is, after the hero array that ends at `heroes_end`.
+fn date_pos(heroes_end: usize, format: Format) -> Result<usize, Error> {
+    heroes_end.checked_add(format.date_offset).ok_or(Error::Truncated {
         pos: heroes_end,
         len: format.date_offset,
-    })?;
+    })
+}
+
+/// The date stored at `pos`.
+fn read_date(data: &[u8], pos: usize) -> Result<Date, Error> {
     let bytes = Reader::at(data, pos).array()?;
     Date::from_bytes(bytes).ok_or(Error::InvalidDate(bytes))
+}
+
+/// The tiles each player has seen, after the date at `date_pos`.
+fn read_visibility(data: &[u8], date_pos: usize, map_size: MapSize, has_underground: u8) -> Result<Visibility, Error> {
+    let pos = date_pos
+        .checked_add(visibility::OFFSET_AFTER_DATE)
+        .ok_or(Error::Truncated {
+            pos: date_pos,
+            len: visibility::OFFSET_AFTER_DATE,
+        })?;
+    let levels = if has_underground == 0 { 1 } else { 2 };
+    Ok(Visibility::read(data, pos, usize::from(map_size.0), levels)?)
 }
 
 /// A parsed save file.
@@ -332,6 +351,8 @@ pub struct SaveFile {
     pub description: String,
     /// The in-game date when the game was saved.
     pub date: Date,
+    /// The tiles each player has seen.
+    pub visibility: Visibility,
 
     pub players: [PlayerData; MAX_PLAYERS],
     pub towns: Vec<Town>,
@@ -376,6 +397,10 @@ impl SaveFile {
             player::read_all(data, layout.players, hero_count_usize, towns_in_block).ok_or(Error::PlayersNotFound)?;
         let (towns, _) = town::read_block(data, layout.town_count).ok_or(Error::TownsNotFound)?;
         let heroes = hero::read_all(data, layout.heroes, hero_count_usize, format)?;
+        let date_at = date_pos(
+            record_pos(layout.heroes, hero_count_usize, format.hero_record_size)?,
+            format,
+        )?;
 
         Ok(SaveFile {
             header,
@@ -387,11 +412,8 @@ impl SaveFile {
             map_name,
             description_size,
             description,
-            date: read_date(
-                data,
-                record_pos(layout.heroes, hero_count_usize, format.hero_record_size)?,
-                format,
-            )?,
+            date: read_date(data, date_at)?,
+            visibility: read_visibility(data, date_at, map_size, has_underground)?,
             players,
             towns,
             heroes,

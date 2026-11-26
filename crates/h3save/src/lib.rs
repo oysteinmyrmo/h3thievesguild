@@ -43,6 +43,7 @@ pub mod skills;
 pub mod spells;
 pub mod stats;
 pub mod town;
+pub mod visibility;
 
 pub use artifacts::{Artifact, ArtifactClass, ArtifactDetails, ArtifactEntry, ArtifactSlot, ArtifactSlotType};
 pub use creatures::Creature;
@@ -53,3 +54,4 @@ pub use savefile::{Error, Format, Layout, MapSize, SaveFile};
 pub use skills::{Skill, SkillLevel, SkillSlot, SkillSlots};
 pub use spells::Spell;
 pub use town::{Town, TownType};
+pub use visibility::Visibility;
