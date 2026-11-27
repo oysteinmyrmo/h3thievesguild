@@ -131,6 +131,13 @@ fn kingdom_army_strength_counts_the_factory_creatures() {
     assert_eq!(players[0].best_creature_ai_value(), 3574);
     assert_eq!(players[1].best_creature_ai_value(), 5341);
     assert_eq!(players[2].best_creature_ai_value(), 6433);
+    assert_eq!(players[0].best_creature(), Some(Creature::COUATL));
+    assert_eq!(players[1].best_creature(), Some(Creature::CRIMSON_COUATL));
+    assert_eq!(players[2].best_creature(), Some(Creature::JUGGERNAUT));
+    assert_eq!(
+        Creature::CRIMSON_COUATL.display_name().as_deref(),
+        Some("Crimson Couatl")
+    );
 }
 
 #[test]
