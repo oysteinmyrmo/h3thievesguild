@@ -21,6 +21,7 @@ async function choose(page: Page, files: ReturnType<typeof save>[]) {
 const CATEGORY: Record<string, string> = {
     ...Object.fromEntries(["gold", "wood", "ore", "mercury", "sulfur", "crystal", "gems"].map((id) => [id, "Economy"])),
     armyStrength: "Army",
+    bestCreature: "Army",
     mapExplored: "Map",
     ...Object.fromEntries(
         ["heroes", "heroesOnMap", "totalHeroLevels", "highestHeroLevel", "totalExperience", "towns"].map((id) => [id, "Kingdom"]),
@@ -85,7 +86,7 @@ test("the dropdowns choose the category and the chart, and Back returns to the o
         "Heroes", "Heroes on the map", "Total hero levels", "Highest hero level", "Total experience", "Towns",
     ]);
     await category.selectOption("Army");
-    await expect(chart.locator("option")).toHaveText(["Kingdom army strength"]);
+    await expect(chart.locator("option")).toHaveText(["Kingdom army strength", "Best creature"]);
     await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
     await page.goBack();
     await expect(page).toHaveURL(/#\/saves\/heroes$/);
@@ -269,19 +270,20 @@ test("the arrows step to the previous and next chart, across categories and wrap
     // The arrow keys do the same, once the page has caught up with the URL.
     await page.locator("body").click({ position: { x: 1, y: 1 } });
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("table-heroes")).toHaveCount(1);
+    await expect(page.getByTestId("table-bestCreature")).toHaveCount(1);
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("table-heroesOnMap")).toHaveCount(1);
-    await expect(page).toHaveURL(/#\/saves\/heroesOnMap$/);
-    await page.keyboard.press("ArrowLeft");
     await expect(page.getByTestId("table-heroes")).toHaveCount(1);
+    await expect(page).toHaveURL(/#\/saves\/heroes$/);
+    await page.keyboard.press("ArrowLeft");
+    await expect(page.getByTestId("table-bestCreature")).toHaveCount(1);
     await page.keyboard.press("ArrowLeft");
     await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
-    // Arrow keys in a dropdown are for the dropdown. (Army has one chart, so the chart dropdown
+    // Arrow keys in a dropdown are for the dropdown. (Map has one chart, so the chart dropdown
     // has nowhere to go; some browsers change a dropdown's value with the arrow keys.)
+    await showChart(page, "mapExplored");
     await page.getByTestId("chart-select").focus();
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("table-armyStrength")).toHaveCount(1);
+    await expect(page.getByTestId("table-mapExplored")).toHaveCount(1);
 });
 
 test("the x-axis shows day numbers or dates, and the choice is remembered", async ({ page }) => {
@@ -350,10 +352,10 @@ test("all charts download as PNG images in one ZIP file", async ({ page }) => {
     // Read the central directory: one PNG image per chart.
     const end = zip.length - 22;
     expect(zip.readUInt32LE(end)).toBe(0x06054b50);
-    expect(zip.readUInt16LE(end + 10)).toBe(15);
+    expect(zip.readUInt16LE(end + 10)).toBe(16);
     let pos = zip.readUInt32LE(end + 16);
     const names: string[] = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 16; i++) {
         const nameLength = zip.readUInt16LE(pos + 28);
         const local = zip.readUInt32LE(pos + 42);
         names.push(zip.subarray(pos + 46, pos + 46 + nameLength).toString("utf8"));
@@ -363,7 +365,8 @@ test("all charts download as PNG images in one ZIP file", async ({ page }) => {
     }
     expect(names).toContain("SaveGameTester_Resources - Gold.png");
     expect(names).toContain("SaveGameTester_Resources - Kingdom army strength.png");
-    expect(new Set(names).size).toBe(15);
+    expect(names).toContain("SaveGameTester_Resources - Best creature.png");
+    expect(new Set(names).size).toBe(16);
     await expect(page.getByTestId("download-all")).toBeEnabled();
 });
 
@@ -443,4 +446,29 @@ test("the Map category shows how much of the map each player has explored", asyn
     await expect(rows.nth(1).locator("td").nth(0)).toHaveText("5.3%");
     await expect(rows.nth(2).locator("td").nth(0)).toHaveText("6.8%");
     await expect(rows.nth(2).locator("td").nth(4)).toHaveText("48.8%");
+});
+
+test("the Army category shows each player's best creature, named", async ({ page }) => {
+    // test_data/creatures: each player has a town's creatures; Pink also has Azure Dragons.
+    await choose(page, [save("creatures", "[hotseat] 111.GM8"), save("creatures", "[hotseat] 112.GM8")]);
+    await page.getByTestId("category-select").selectOption("Army");
+    await expect(page.getByTestId("chart-select").locator("option")).toHaveText(["Kingdom army strength", "Best creature"]);
+    await showChart(page, "bestCreature");
+    await expect(page.getByRole("heading", { name: "Best creature", level: 2 })).toBeVisible();
+    const cells = page.getByTestId("table-bestCreature").locator("tbody tr").nth(0).locator("td");
+    await expect(cells).toHaveText([
+        "8,776 (Archangel)",
+        "8,613 (Gold Dragon)",
+        "7,500 (Titan)",
+        "7,115 (Arch Devil)",
+        "4,696 (Ghost Dragon)",
+        "8,721 (Black Dragon)",
+        "6,168 (Ancient Behemoth)",
+        "78,845 (Azure Dragon)",
+    ]);
+    // The tooltip names the creature too.
+    await page.getByTestId("chart-bestCreature").hover();
+    const tooltip = page.getByTestId("chart-bestCreature").getByText("(Black Dragon)");
+    await expect(tooltip).toBeVisible();
+    await expect(page.getByTestId("chart-bestCreature")).toContainText("Red: 8,776 (Archangel)");
 });

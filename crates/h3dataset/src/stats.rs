@@ -1,7 +1,7 @@
 //! The statistics in a data set: what each is called and how it is read from a save.
 
 use h3save::player::Player;
-use h3save::{Hero, SaveFile};
+use h3save::{Creature, Hero, SaveFile};
 use serde::Serialize;
 
 /// Describes one statistic, so the frontend can list and label it.
@@ -39,6 +39,9 @@ pub enum Unit {
 pub(crate) struct PlayerStat {
     pub info: StatInfo,
     pub read: fn(&Player, &SaveFile) -> f64,
+    /// Text to show with the value, such as the name of the creature it is the AI value of.
+    /// `None` for statistics that are only a number.
+    pub label: Option<fn(&Player, &SaveFile) -> Option<String>>,
 }
 
 /// A hero statistic and how to read it.
@@ -105,62 +108,82 @@ pub(crate) const PLAYER_STATS: &[PlayerStat] = &[
     PlayerStat {
         info: info("gold", "Gold", "Economy"),
         read: |p, _| f64::from(p.gold()),
+        label: None,
     },
     PlayerStat {
         info: info("wood", "Wood", "Economy"),
         read: |p, _| f64::from(p.wood()),
+        label: None,
     },
     PlayerStat {
         info: info("ore", "Ore", "Economy"),
         read: |p, _| f64::from(p.ore()),
+        label: None,
     },
     PlayerStat {
         info: info("mercury", "Mercury", "Economy"),
         read: |p, _| f64::from(p.mercury()),
+        label: None,
     },
     PlayerStat {
         info: info("sulfur", "Sulfur", "Economy"),
         read: |p, _| f64::from(p.sulfur()),
+        label: None,
     },
     PlayerStat {
         info: info("crystal", "Crystal", "Economy"),
         read: |p, _| f64::from(p.crystal()),
+        label: None,
     },
     PlayerStat {
         info: info("gems", "Gems", "Economy"),
         read: |p, _| f64::from(p.gems()),
+        label: None,
     },
     PlayerStat {
         info: info("armyStrength", "Kingdom army strength", "Army"),
         read: |p, _| big(p.kingdom_army_strength()),
+        label: None,
+    },
+    PlayerStat {
+        info: info("bestCreature", "Best creature", "Army"),
+        read: |p, _| f64::from(p.best_creature_ai_value()),
+        label: Some(|p, _| p.best_creature().and_then(Creature::display_name)),
     },
     PlayerStat {
         info: info("heroes", "Heroes", "Kingdom"),
         read: |p, _| count(p.heroes().len()),
+        label: None,
     },
     PlayerStat {
         info: info("heroesOnMap", "Heroes on the map", "Kingdom"),
         read: on_map,
+        label: None,
     },
     PlayerStat {
         info: info("totalHeroLevels", "Total hero levels", "Kingdom"),
         read: total_levels,
+        label: None,
     },
     PlayerStat {
         info: info("highestHeroLevel", "Highest hero level", "Kingdom"),
         read: highest_level,
+        label: None,
     },
     PlayerStat {
         info: info("totalExperience", "Total experience", "Kingdom"),
         read: total_experience,
+        label: None,
     },
     PlayerStat {
         info: info("towns", "Towns", "Kingdom"),
         read: |p, _| count(p.towns().len()),
+        label: None,
     },
     PlayerStat {
         info: percent("mapExplored", "Map explored", "Map"),
         read: map_explored,
+        label: None,
     },
 ];
 

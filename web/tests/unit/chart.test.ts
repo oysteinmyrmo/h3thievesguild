@@ -5,10 +5,12 @@ import {
     dayShares,
     statChartOption,
     unitOf,
+    playerLabel,
     tooltipHtml,
+    valueWithLabel,
     type ChartSettings,
 } from "../../src/lib/chart";
-import { MAP_VISIBILITY, RESOURCES, dataset } from "./saves";
+import { CREATURES, MAP_VISIBILITY, RESOURCES, dataset } from "./saves";
 
 const theme = { text: "#111", muted: "#666", gridLine: "#ddd", missing: "rgba(0,0,0,0.1)", tooltipBackground: "#fff" };
 // Month-week-day labels, so the tests can tell days apart from counts.
@@ -316,5 +318,46 @@ describe("tooltipHtml", () => {
 
     it("is empty for a day out of range", () => {
         expect(tooltipHtml(full, "gold", 99, full.players)).toBe("");
+    });
+});
+
+describe("labels", () => {
+    const creatures = dataset(CREATURES);
+
+    it("name the best creature after its AI value in the tooltip", () => {
+        const html = tooltipHtml(creatures, "bestCreature", 0, creatures.players);
+        expect(html).toContain("Red: <strong>8,776</strong> (Archangel)<br>");
+        expect(html).toContain("Purple: <strong>8,721</strong> (Black Dragon)<br>");
+        expect(html).toContain("Pink: <strong>78,845</strong> (Azure Dragon)");
+        // Other statistics have no labels.
+        expect(tooltipHtml(creatures, "armyStrength", 0, creatures.players)).not.toContain("(");
+    });
+
+    it("follow the value in the stacked shares tooltip", () => {
+        const html = tooltipHtml(creatures, "bestCreature", 1, creatures.players, {}, true);
+        expect(html).toMatch(/Red: <strong>[\d.]+%<\/strong> \(8,776, Archangel\)<br>/);
+    });
+
+    it("are left out on days without one, and in games remembered from before labels", () => {
+        const red = creatures.players[0]!;
+        expect(playerLabel(red, "bestCreature", 0)).toBe("Archangel");
+        expect(playerLabel(red, "bestCreature", 5)).toBeNull();
+        expect(playerLabel(red, "gold", 0)).toBeNull();
+        const old = { ...creatures, players: creatures.players.map(({ labels: _, ...p }) => p as typeof red) };
+        expect(playerLabel(old.players[0]!, "bestCreature", 0)).toBeNull();
+        expect(tooltipHtml(old, "bestCreature", 0, old.players)).toContain("Red: <strong>8,776</strong><br>");
+        // A day without a name, such as one without creatures.
+        const none = creatures.players.map((p) => ({ ...p, labels: { bestCreature: [null, null] } }));
+        expect(tooltipHtml(creatures, "bestCreature", 0, none)).toContain("Red: <strong>8,776</strong><br>");
+    });
+
+    it("are escaped as HTML", () => {
+        const odd = creatures.players.map((p) => ({ ...p, labels: { bestCreature: ["<b>&", null] } }));
+        expect(tooltipHtml(creatures, "bestCreature", 0, odd)).toContain("(&lt;b&gt;&amp;)");
+    });
+
+    it("go in parentheses after a value", () => {
+        expect(valueWithLabel("8,776", "Archangel")).toBe("8,776 (Archangel)");
+        expect(valueWithLabel("—", null)).toBe("—");
     });
 });

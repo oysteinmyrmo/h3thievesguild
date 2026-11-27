@@ -34,6 +34,15 @@ fn values(dataset: &Dataset, player_id: &str, stat: &str) -> Vec<Option<f64>> {
     player(dataset, player_id).values[stat].clone()
 }
 
+fn labels(dataset: &Dataset, player_id: &str, stat: &str) -> Vec<Option<String>> {
+    player(dataset, player_id).labels[stat].clone()
+}
+
+/// Names as the `Option<String>` labels of a series.
+fn named(names: &[Option<&str>]) -> Vec<Option<String>> {
+    names.iter().map(|n| n.map(str::to_string)).collect()
+}
+
 /// Wood, mercury, ore, sulfur, crystal, gems and gold.
 type Resources = [u32; 7];
 
@@ -120,6 +129,21 @@ fn check_shape(dataset: &Dataset) {
             );
         }
         assert!(p.color.len() == 7 && p.color.starts_with('#'));
+        // Labels for the statistics that have them, and only on days with a value: none on a
+        // missing day or the day the player is eliminated.
+        assert_eq!(
+            p.labels.keys().map(String::as_str).collect::<Vec<_>>(),
+            ["bestCreature"]
+        );
+        for (stat, row) in &p.labels {
+            assert_eq!(row.len(), days);
+            for (i, label) in row.iter().enumerate() {
+                if label.is_some() {
+                    assert!(p.values[stat][i].is_some_and(|v| v > 0.0), "{} {stat} {i}", p.id);
+                    assert!(out != Some(i), "{} {stat} {i}", p.id);
+                }
+            }
+        }
     }
     for hero in &dataset.heroes {
         assert_eq!(hero.owner.len(), days);
@@ -539,7 +563,7 @@ fn json_has_the_shape_the_frontend_expects() {
     );
     assert_eq!(
         keys(&json["players"][0]),
-        set(&["id", "name", "color", "eliminatedDay", "values"])
+        set(&["id", "name", "color", "eliminatedDay", "values", "labels"])
     );
     assert_eq!(keys(&json["heroes"][0]), set(&["id", "name", "owner", "values"]));
     assert_eq!(json["map"]["size"], "S");
@@ -557,6 +581,10 @@ fn json_has_the_shape_the_frontend_expects() {
     assert_eq!(blue["color"], "#3050f8");
     assert_eq!(blue["eliminatedDay"], 3);
     assert_eq!(blue["values"]["gold"], json!([6700.0, 0.0]));
+    // A name on the day Blue has a best creature (as read from the save; info.txt does not list
+    // the armies), null the day Blue is out of the game.
+    assert_eq!(blue["values"]["bestCreature"], json!([356.0, 0.0]));
+    assert_eq!(blue["labels"], json!({"bestCreature": ["Air Elemental", null]}));
     let red = json["players"]
         .as_array()
         .unwrap()
@@ -735,6 +763,9 @@ fn elimination_is_the_first_saved_day_out_of_the_game() {
         assert_eq!(row[2], Some(0.0));
     }
     assert_eq!(values(&dataset, "red", "gold"), [Some(2500.0), None, Some(10_700.0)]);
+    // No creature to name on the day of the elimination.
+    assert_eq!(values(&dataset, "blue", "bestCreature")[2], Some(0.0));
+    assert_eq!(labels(&dataset, "blue", "bestCreature")[2], None);
 }
 
 /// A parsed save with its date changed, for spans the test saves do not have.
@@ -830,5 +861,83 @@ fn map_explored_is_the_share_of_the_whole_map_each_player_has_seen() {
     assert_eq!(
         (stat.name, stat.group, stat.unit),
         ("Map explored", "Map", h3dataset::Unit::Percent)
+    );
+}
+
+#[test]
+fn best_creature_is_the_highest_ai_value_with_the_creature_named() {
+    // test_data/creatures: every player has the creatures of a town, one to seven of each level.
+    let dataset = dataset_from("creatures", &["[hotseat] 111.GM8", "[hotseat] 112.GM8"]).unwrap();
+    check_shape(&dataset);
+    let expected = [
+        ("red", 8776, "Archangel"),
+        ("blue", 8613, "Gold Dragon"),
+        ("tan", 7500, "Titan"),
+        ("green", 7115, "Arch Devil"),
+        ("orange", 4696, "Ghost Dragon"),
+        ("purple", 8721, "Black Dragon"),
+        ("teal", 6168, "Ancient Behemoth"),
+        ("pink", 78_845, "Azure Dragon"),
+    ];
+    for (id, value, name) in expected {
+        assert_eq!(values(&dataset, id, "bestCreature"), some(&[value, value]), "{id}");
+        assert_eq!(
+            labels(&dataset, id, "bestCreature"),
+            named(&[Some(name), Some(name)]),
+            "{id}"
+        );
+    }
+    let stat = dataset.player_stats.iter().find(|s| s.id == "bestCreature").unwrap();
+    assert_eq!(
+        (stat.name, stat.group, stat.unit),
+        ("Best creature", "Army", h3dataset::Unit::Count)
+    );
+    // Right after kingdom army strength.
+    let ids: Vec<&str> = dataset.player_stats.iter().map(|s| s.id).collect();
+    let army = ids.iter().position(|&id| id == "armyStrength").unwrap();
+    assert_eq!(ids[army + 1], "bestCreature");
+}
+
+#[test]
+fn best_creature_of_the_town_additions() {
+    let bulwark = dataset_from("bulwark", &["test-bulwark.GM2"]).unwrap();
+    check_shape(&bulwark);
+    assert_eq!(values(&bulwark, "red", "bestCreature"), some(&[4180]));
+    assert_eq!(labels(&bulwark, "red", "bestCreature"), named(&[Some("Jotunn")]));
+    assert_eq!(values(&bulwark, "blue", "bestCreature"), some(&[6694]));
+    assert_eq!(
+        labels(&bulwark, "blue", "bestCreature"),
+        named(&[Some("Jotunn Warlord")])
+    );
+    let factory = dataset_from("factory", &["test-factory.GM3"]).unwrap();
+    check_shape(&factory);
+    for (id, value, name) in [
+        ("red", 3574, "Couatl"),
+        ("blue", 5341, "Crimson Couatl"),
+        ("tan", 6433, "Juggernaut"),
+    ] {
+        assert_eq!(values(&factory, id, "bestCreature"), some(&[value]), "{id}");
+        assert_eq!(labels(&factory, id, "bestCreature"), named(&[Some(name)]), "{id}");
+    }
+}
+
+#[test]
+fn a_player_with_no_creatures_has_a_best_creature_of_0_and_no_name() {
+    // test_data/hota_1_7: on the last day Green has a town with no garrison and no heroes.
+    let dataset = dataset_from("hota_1_7", &["[hotseat] 111.GM7", "[hotseat] 317.GM4"]).unwrap();
+    check_shape(&dataset);
+    let green_values = values(&dataset, "green", "bestCreature");
+    let green_labels = labels(&dataset, "green", "bestCreature");
+    assert_eq!(green_values.first(), Some(&Some(1350.0)));
+    assert_eq!(green_labels.first(), Some(&Some("Wyvern".to_string())));
+    assert_eq!(green_values.last(), Some(&Some(0.0)));
+    assert_eq!(green_labels.last(), Some(&None));
+    // The days between the two saves have neither a value nor a name.
+    assert!(green_values[1..green_values.len() - 1].iter().all(Option::is_none));
+    assert!(green_labels[1..green_labels.len() - 1].iter().all(Option::is_none));
+    assert_eq!(values(&dataset, "orange", "bestCreature").last(), Some(&Some(8721.0)));
+    assert_eq!(
+        labels(&dataset, "orange", "bestCreature").last(),
+        Some(&Some("Black Dragon".to_string()))
     );
 }

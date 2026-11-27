@@ -37,6 +37,19 @@ export function unitOf(dataset: Dataset, statId: string): Unit {
     return dataset.playerStats.find((s) => s.id === statId)?.unit ?? "count";
 }
 
+/**
+ * Text to show with a player's value on a day, such as the name of the best creature, or `null`.
+ * Games remembered from before statistics had labels have none.
+ */
+export function playerLabel(player: PlayerSeries, statId: string, dayIndex: number): string | null {
+    return player.labels?.[statId]?.[dayIndex] ?? null;
+}
+
+/** A value with its label, if any: "8,776 (Archangel)". */
+export function valueWithLabel(value: string, label: string | null): string {
+    return label === null ? value : `${value} (${label})`;
+}
+
 /** The row of values of a statistic for a player, `null` on days without a value. */
 export function playerValues(dataset: Dataset, player: PlayerSeries, statId: string): (number | null)[] {
     return player.values[statId] ?? dataset.days.map(() => null);
@@ -85,13 +98,15 @@ export function tooltipHtml(
     const rows = players.map((p, i) => {
         const raw = playerValues(dataset, p, statId)[dayIndex];
         const value = formatValue(raw, unitOf(dataset, statId));
+        const label = playerLabel(p, statId, dayIndex);
+        const name = label === null ? null : escapeHtml(label);
         const marker = `<span class="tooltip-marker" style="background:${escapeHtml(p.color)}"></span>`;
         // A player out of the game has no share, rather than 0%.
         const shown = !share
-            ? `<strong>${value}</strong>`
+            ? `<strong>${value}</strong>${name === null ? "" : ` (${name})`}`
             : raw === null || raw === undefined
               ? `<strong>—</strong>`
-              : `<strong>${formatShare(shares[i])}</strong> (${value})`;
+              : `<strong>${formatShare(shares[i])}</strong> (${name === null ? value : `${value}, ${name}`})`;
         return `${marker}${escapeHtml(displayName(p, names))}: ${shown}`;
     });
     return [header, ...rows].join("<br>");
