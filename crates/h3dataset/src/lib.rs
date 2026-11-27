@@ -43,4 +43,4 @@ pub mod stats;
 
 pub use dataset::{Builder, Dataset, Day, DayRange, HeroSeries, MAX_DAYS, MapInfo, PlayerSeries, build};
 pub use error::{DatasetError, DayFiles, GameFiles, UnreadableFile};
-pub use stats::StatInfo;
+pub use stats::{StatInfo, Unit};

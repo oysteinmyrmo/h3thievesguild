@@ -14,7 +14,7 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 use h3save::savefile::{Error, Format, HEADER_NORMAL, Layout, MAX_DECOMPRESSED_SIZE, decompress};
 use h3save::town::MAX_TOWNS;
-use h3save::{Date, SaveFile, date};
+use h3save::{Date, SaveFile, date, visibility};
 
 /// The samples are HotA 1.8 saves.
 const HERO_RECORD_SIZE: usize = Format::HOTA_1_8.hero_record_size;
@@ -55,7 +55,9 @@ struct Sample {
     data: Vec<u8>,
     layout: Layout,
     hero_count: usize,
-    /// One past the last byte the parser reads: the end of the date.
+    /// Where the date starts.
+    date: usize,
+    /// One past the last byte the parser reads: the end of the tiles each player has seen.
     end: usize,
     towns: Vec<usize>,
 }
@@ -83,7 +85,11 @@ impl Sample {
             data,
             layout,
             hero_count,
-            end: heroes_end + DATE_OFFSET + date::SIZE,
+            date: heroes_end + DATE_OFFSET,
+            end: heroes_end
+                + DATE_OFFSET
+                + visibility::OFFSET_AFTER_DATE
+                + save.visibility.tile_count() * visibility::TILE_SIZE,
             towns,
         }
     }
@@ -105,7 +111,9 @@ impl Sample {
             heroes + HERO_RECORD_SIZE,
             heroes + (self.hero_count - 1) * HERO_RECORD_SIZE,
             heroes + self.hero_count * HERO_RECORD_SIZE,
-            self.end - date::SIZE,
+            self.date,
+            self.date + date::SIZE,
+            self.date + visibility::OFFSET_AFTER_DATE,
             self.end,
         ];
         out.extend(&self.towns);
@@ -166,7 +174,7 @@ fn every_prefix_ending_at_or_next_to_a_boundary_is_an_error() {
         }
         assert!(
             SaveFile::parse(&sample.data[..sample.end]).is_ok(),
-            "{name} ending right after the date"
+            "{name} ending right after the tiles each player has seen"
         );
     }
 }

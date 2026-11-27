@@ -17,8 +17,22 @@ pub struct StatInfo {
     pub id: &'static str,
     /// Name to show.
     pub name: &'static str,
-    /// Group to show it under, such as "Resources".
+    /// Category to show it under, such as "Economy". The page lists the categories in the
+    /// order they first appear.
     pub group: &'static str,
+    /// What the values count.
+    pub unit: Unit,
+}
+
+/// What a statistic's values count.
+#[cfg_attr(feature = "typescript", derive(tsify::Tsify))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Unit {
+    /// Whole things: gold, heroes, levels and so on.
+    Count,
+    /// A percentage, from 0 to 100.
+    Percent,
 }
 
 /// A player statistic and how to read it.
@@ -34,7 +48,26 @@ pub(crate) struct HeroStat {
 }
 
 const fn info(id: &'static str, name: &'static str, group: &'static str) -> StatInfo {
-    StatInfo { id, name, group }
+    StatInfo {
+        id,
+        name,
+        group,
+        unit: Unit::Count,
+    }
+}
+
+const fn percent(id: &'static str, name: &'static str, group: &'static str) -> StatInfo {
+    StatInfo {
+        id,
+        name,
+        group,
+        unit: Unit::Percent,
+    }
+}
+
+/// The share of the map the player has seen, in percent.
+fn map_explored(player: &Player, save: &SaveFile) -> f64 {
+    save.visibility.share_seen(player.color()) * 100.0
 }
 
 #[expect(
@@ -70,31 +103,31 @@ fn count(n: usize) -> f64 {
 /// Statistics of each player, in the order the frontend should list them.
 pub(crate) const PLAYER_STATS: &[PlayerStat] = &[
     PlayerStat {
-        info: info("gold", "Gold", "Resources"),
+        info: info("gold", "Gold", "Economy"),
         read: |p, _| f64::from(p.gold()),
     },
     PlayerStat {
-        info: info("wood", "Wood", "Resources"),
+        info: info("wood", "Wood", "Economy"),
         read: |p, _| f64::from(p.wood()),
     },
     PlayerStat {
-        info: info("ore", "Ore", "Resources"),
+        info: info("ore", "Ore", "Economy"),
         read: |p, _| f64::from(p.ore()),
     },
     PlayerStat {
-        info: info("mercury", "Mercury", "Resources"),
+        info: info("mercury", "Mercury", "Economy"),
         read: |p, _| f64::from(p.mercury()),
     },
     PlayerStat {
-        info: info("sulfur", "Sulfur", "Resources"),
+        info: info("sulfur", "Sulfur", "Economy"),
         read: |p, _| f64::from(p.sulfur()),
     },
     PlayerStat {
-        info: info("crystal", "Crystal", "Resources"),
+        info: info("crystal", "Crystal", "Economy"),
         read: |p, _| f64::from(p.crystal()),
     },
     PlayerStat {
-        info: info("gems", "Gems", "Resources"),
+        info: info("gems", "Gems", "Economy"),
         read: |p, _| f64::from(p.gems()),
     },
     PlayerStat {
@@ -102,28 +135,32 @@ pub(crate) const PLAYER_STATS: &[PlayerStat] = &[
         read: |p, _| big(p.kingdom_army_strength()),
     },
     PlayerStat {
-        info: info("heroes", "Heroes", "Heroes"),
+        info: info("heroes", "Heroes", "Kingdom"),
         read: |p, _| count(p.heroes().len()),
     },
     PlayerStat {
-        info: info("heroesOnMap", "Heroes on the map", "Heroes"),
+        info: info("heroesOnMap", "Heroes on the map", "Kingdom"),
         read: on_map,
     },
     PlayerStat {
-        info: info("totalHeroLevels", "Total hero levels", "Heroes"),
+        info: info("totalHeroLevels", "Total hero levels", "Kingdom"),
         read: total_levels,
     },
     PlayerStat {
-        info: info("highestHeroLevel", "Highest hero level", "Heroes"),
+        info: info("highestHeroLevel", "Highest hero level", "Kingdom"),
         read: highest_level,
     },
     PlayerStat {
-        info: info("totalExperience", "Total experience", "Heroes"),
+        info: info("totalExperience", "Total experience", "Kingdom"),
         read: total_experience,
     },
     PlayerStat {
-        info: info("towns", "Towns", "Towns"),
+        info: info("towns", "Towns", "Kingdom"),
         read: |p, _| count(p.towns().len()),
+    },
+    PlayerStat {
+        info: percent("mapExplored", "Map explored", "Map"),
+        read: map_explored,
     },
 ];
 

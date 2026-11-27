@@ -36,6 +36,7 @@ that turns a game's saves into series for plotting.
 | `crates/h3wasm` | WebAssembly bindings for the browser, with TypeScript types for the data set. |
 | `web` | The web frontend. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools, and two HotA 1.7 saves in `hota_1_7`. Each folder's `info.txt` describes what was done in game. |
+| `docs/save-format.md` | The save file format, as far as the parser reads it. |
 
 ## Tests
 

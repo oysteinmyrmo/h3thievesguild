@@ -9,6 +9,9 @@ describe("formatting", () => {
         expect(formatValue(0)).toBe("0");
         expect(formatValue(null)).toBe("—");
         expect(formatValue(undefined)).toBe("—");
+        expect(formatValue(3.742_28, "percent")).toBe("3.7%");
+        expect(formatValue(null, "percent")).toBe("—");
+        expect(formatValue(1234.5, "count")).toBe("1,235");
         expect(formatAxis(9999)).toBe("9,999");
         expect(formatAxis(12_500)).toBe("12.5K");
         expect(formatShare(42.3728)).toBe("42.4%");

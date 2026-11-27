@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use common::{Decompressed, all_saves, data_dir};
 use h3save::savefile::Error;
-use h3save::{Date, SaveFile, date};
+use h3save::{Date, SaveFile, date, visibility};
 
 /// The date an autosave's name gives: `[hotseat] MWD.GMn`, or `[hotseat] MWD.xx.GMn`.
 /// The `start` saves and the Bulwark and Factory saves were saved on the first day.
@@ -39,7 +39,7 @@ fn sample() -> PathBuf {
 #[test]
 fn every_test_save_has_the_date_its_autosave_name_gives() {
     let saves = all_saves();
-    assert_eq!(saves.len(), 72);
+    assert_eq!(saves.len(), 75);
     for path in saves {
         let save = SaveFile::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         assert_eq!(save.date, date_from_name(&path), "{}", path.display());
@@ -111,5 +111,11 @@ fn data_ending_inside_the_date_is_truncated() {
             other => panic!("ending at {end}: expected Truncated, got {other:?}"),
         }
     }
-    assert!(SaveFile::parse(&data[..pos + date::SIZE]).is_ok());
+    // The tiles each player has seen come after the date, so the save must reach past them too.
+    let tiles = pos + visibility::OFFSET_AFTER_DATE;
+    assert!(matches!(SaveFile::parse(&data[..pos + date::SIZE]), Err(Error::Truncated { pos: at, .. }) if at == tiles));
+    let save = SaveFile::parse(&data).unwrap();
+    let end = tiles + save.visibility.tile_count() * visibility::TILE_SIZE;
+    assert!(matches!(SaveFile::parse(&data[..end - 1]), Err(Error::Truncated { pos: at, .. }) if at == tiles));
+    assert!(SaveFile::parse(&data[..end]).is_ok());
 }

@@ -4,10 +4,11 @@ import {
     MISSING_SERIES,
     dayShares,
     statChartOption,
+    unitOf,
     tooltipHtml,
     type ChartSettings,
 } from "../../src/lib/chart";
-import { RESOURCES, dataset } from "./saves";
+import { MAP_VISIBILITY, RESOURCES, dataset } from "./saves";
 
 const theme = { text: "#111", muted: "#666", gridLine: "#ddd", missing: "rgba(0,0,0,0.1)", tooltipBackground: "#fff" };
 // Month-week-day labels, so the tests can tell days apart from counts.
@@ -254,6 +255,30 @@ describe("the stacked share view", () => {
         };
         expect(tooltipHtml(after, "gold", 2, after.players, {}, true)).toContain("Tan: <strong>—</strong><br>");
         expect(sum(dayShares(after, after.players, "gold", 2))).toBeCloseTo(100, 9);
+    });
+});
+
+describe("percentages", () => {
+    const map = dataset(MAP_VISIBILITY);
+
+    it("are drawn on a percent axis, not limited to whole numbers", () => {
+        const option = statChartOption(map, "mapExplored", detail);
+        expect(option.yAxis).toMatchObject({ min: 0 });
+        expect((option.yAxis as { minInterval?: number }).minInterval).toBeUndefined();
+        expect((option.yAxis.axisLabel.formatter as (v: number) => string)(12.5)).toBe("12.5%");
+        const red = series(option).find((s) => s.id === "red")!;
+        expect(red.data.map((v) => v!.toFixed(4))).toEqual(["3.7423", "5.2855", "6.8287"]);
+        // Counts keep their whole-number axis.
+        expect(statChartOption(map, "gold", detail).yAxis.minInterval).toBe(1);
+        expect(unitOf(map, "mapExplored")).toBe("percent");
+        expect(unitOf(map, "gold")).toBe("count");
+        expect(unitOf(map, "nonsense")).toBe("count");
+    });
+
+    it("show with a percent sign in the tooltip", () => {
+        const html = tooltipHtml(map, "mapExplored", 0, map.players);
+        expect(html).toContain("Red: <strong>3.7%</strong>");
+        expect(html).toContain("Orange: <strong>22.3%</strong>");
     });
 });
 

@@ -1,14 +1,17 @@
 // Text shown for numbers and dates.
 
 import type { XAxisMode } from "./options";
-import type { Dataset, Day } from "./wasm/pkg/h3wasm";
+import type { Dataset, Day, Unit } from "./wasm/pkg/h3wasm";
 
 const whole = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const short = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
-/** A value for a tooltip or table: "12,345", or an em dash when there is none. */
-export function formatValue(value: number | null | undefined): string {
-    return value === null || value === undefined ? "—" : whole.format(value);
+/** A value for a tooltip or table: "12,345" or "3.7%", or an em dash when there is none. */
+export function formatValue(value: number | null | undefined, unit: Unit = "count"): string {
+    if (value === null || value === undefined) {
+        return "—";
+    }
+    return unit === "percent" ? formatShare(value) : whole.format(value);
 }
 
 /** A share for a tooltip or table: "32.4%", or an em dash when there is none. */

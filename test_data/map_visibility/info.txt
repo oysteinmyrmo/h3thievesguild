@@ -1,0 +1,31 @@
+Map size is small: 36 x 36 = 1296
+Has underground
+Default scouting radius is 5 tiles north, south, east, west,
+
+Player 1, Red, Sylvia
+Day 1: Normal view, sees 97 tiles = 3.74228 % of the map
+Day 2: Picks up Spyglass, +1 scouting radius, sees 137 tiles, 5.28549 % of the map
+Day 3: Picks up Speculum, +2 scouting radius, sees 177 tiles, 6.82870 % of the map
+
+Player 2, Blue, Giselle, Basic scouting (+1 radius)
+Day 1: Normal view, radius 6, sees 137 tiles, 5.28549 % of the map
+Day 2: Normal view, radius 6, sees 137 tiles, 5.28549 % of the map
+Day 3: Normal view, radius 6, sees 137 tiles, 5.28549 % of the map
+
+Player 3, Tan, Astral, Advanced scouting (+3 radius)
+Day 1: Normal view, radius 8, sees 225 tiles, 8.68056 % of the map
+Day 2: Normal view, radius 8, sees 225 tiles, 8.68056 % of the map
+Day 3: Normal view, radius 8, sees 225 tiles, 8.68056 % of the map
+
+Player 4, Green, Lacus, Expert scouting (+5 radius)
+Day 1: Normal view, radius 10, sees 349 tiles, 13.464506 % of the map
+Day 2: Normal view, radius 10, sees 349 tiles, 13.464506 % of the map
+Day 3: Normal view, radius 10, sees 349 tiles, 13.464506 % of the map
+
+Player 5, Orange, Miriam, Expert scouting (+5 radius), speciality scouting, level 18 gives +3 radius again
+Day 1: Normal view, radius 13, sees 577 tiles, 22.2698 % of the map
+Day 2: Normal view, radius 13, moved around sees ??? % of the map
+Day 3: Normal view, radius 13, missing 30 tiles of the underground = 1266 tiles of the underground = 1266 / 2592 = 48.84259 % of the map
+scouted all underground = 50 % map visibility
+
+
