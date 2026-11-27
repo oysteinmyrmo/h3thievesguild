@@ -126,6 +126,12 @@ fn kingdom_army_strength_counts_the_bulwark_creatures() {
     assert_eq!(players[1].kingdom_army_strength(), 70_629);
     assert_eq!(players[0].best_creature_ai_value(), 4180);
     assert_eq!(players[1].best_creature_ai_value(), 6694);
+    assert_eq!(players[0].best_creature(), Some(Creature::JOTUNN));
+    assert_eq!(players[1].best_creature(), Some(Creature::JOTUNN_WARLORD));
+    assert_eq!(
+        Creature::JOTUNN_WARLORD.display_name().as_deref(),
+        Some("Jotunn Warlord")
+    );
 }
 
 #[test]

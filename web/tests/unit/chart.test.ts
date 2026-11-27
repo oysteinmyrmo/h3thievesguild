@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
     ELIMINATED_SERIES,
@@ -5,10 +8,13 @@ import {
     dayShares,
     statChartOption,
     unitOf,
+    playerIcon,
+    playerLabel,
     tooltipHtml,
+    valueWithLabel,
     type ChartSettings,
 } from "../../src/lib/chart";
-import { MAP_VISIBILITY, RESOURCES, dataset } from "./saves";
+import { CREATURES, MAP_VISIBILITY, RESOURCES, dataset } from "./saves";
 
 const theme = { text: "#111", muted: "#666", gridLine: "#ddd", missing: "rgba(0,0,0,0.1)", tooltipBackground: "#fff" };
 // Month-week-day labels, so the tests can tell days apart from counts.
@@ -316,5 +322,84 @@ describe("tooltipHtml", () => {
 
     it("is empty for a day out of range", () => {
         expect(tooltipHtml(full, "gold", 99, full.players)).toBe("");
+    });
+});
+
+describe("labels", () => {
+    const creatures = dataset(CREATURES);
+    const img = (name: string) => `<img class="tooltip-icon" src="assets/creatures/${name}.png" alt="" width="32" height="32">`;
+
+    const small = (value: string) => `<span class="tooltip-small">${value}</span>`;
+    /** A row of the grid: the player, the picture, and the name with the value. */
+    const row = (player: string, picture: string, shown: string) => `${player}:</span><span>${picture}</span><span>${shown}</span>`;
+
+    it("show the best creature's picture, then its name, then its AI value in small text", () => {
+        const html = tooltipHtml(creatures, "bestCreature", 0, creatures.players);
+        expect(html).toContain('<div class="tooltip-grid">');
+        expect(html).toContain(row("Red", img("ArchAngel"), `<strong>Archangel</strong> ${small("8,776")}`));
+        expect(html).toContain(row("Purple", img("BlackDragon"), `<strong>Black Dragon</strong> ${small("8,721")}`));
+        expect(html).toContain(row("Pink", img("AzureDragon"), `<strong>Azure Dragon</strong> ${small("78,845")}`));
+        // Other statistics have no labels or pictures.
+        const army = tooltipHtml(creatures, "armyStrength", 0, creatures.players);
+        expect(army).not.toContain("<img");
+        expect(army).not.toContain("tooltip-grid");
+        expect(army).toContain("Red: <strong>");
+    });
+
+    it("follow the share in the stacked shares tooltip, which is the one in bold", () => {
+        const html = tooltipHtml(creatures, "bestCreature", 1, creatures.players, {}, true);
+        expect(html).toMatch(
+            /Red:<\/span><span><img [^>]*ArchAngel\.png[^>]*><\/span><span><strong>[\d.]+%<\/strong> Archangel <span class="tooltip-small">8,776<\/span><\/span>/,
+        );
+    });
+
+    it("are left out on days without one, and in games remembered from before labels", () => {
+        const red = creatures.players[0]!;
+        expect(playerLabel(red, "bestCreature", 0)).toBe("Archangel");
+        expect(playerIcon(red, "bestCreature", 0)).toBe("assets/creatures/ArchAngel.png");
+        expect(playerLabel(red, "bestCreature", 5)).toBeNull();
+        expect(playerIcon(red, "bestCreature", 5)).toBeNull();
+        expect(playerLabel(red, "gold", 0)).toBeNull();
+        expect(playerIcon(red, "gold", 0)).toBeNull();
+        const old = { ...creatures, players: creatures.players.map(({ labels: _, icons: __, ...p }) => p as typeof red) };
+        expect(playerLabel(old.players[0]!, "bestCreature", 0)).toBeNull();
+        expect(tooltipHtml(old, "bestCreature", 0, old.players)).toContain("Red: <strong>8,776</strong><br>");
+        // Remembered with names but before pictures: the name and value without a picture.
+        const named = creatures.players.map(({ icons: _, ...p }) => p as typeof red);
+        expect(tooltipHtml(creatures, "bestCreature", 0, named)).toContain(
+            row("Red", "", `<strong>Archangel</strong> ${small("8,776")}`),
+        );
+        // A player without a name that day among players with one: the value, in the grid.
+        const some = creatures.players.map((p, i) => (i === 0 ? p : { ...p, labels: {}, icons: {} }));
+        const mixed = tooltipHtml(creatures, "bestCreature", 0, some);
+        expect(mixed).toContain(row("Red", img("ArchAngel"), `<strong>Archangel</strong> ${small("8,776")}`));
+        expect(mixed).toContain(row("Blue", "", "<strong>8,613</strong>"));
+        // A day without a name, such as one without creatures.
+        const none = creatures.players.map((p) => ({ ...p, labels: { bestCreature: [null, null] } }));
+        expect(tooltipHtml(creatures, "bestCreature", 0, none)).toContain("Red: <strong>8,776</strong><br>");
+    });
+
+    it("are escaped as HTML, and pictures are only taken from the assets folder", () => {
+        const odd = creatures.players.map((p) => ({ ...p, labels: { bestCreature: ["<b>&", null] } }));
+        expect(tooltipHtml(creatures, "bestCreature", 0, odd)).toContain("<strong>&lt;b&gt;&amp;</strong>");
+        const red = creatures.players[0]!;
+        for (const icon of ['x" onerror="alert(1)', "../secret", "https://example.com/x", "/abs", "a//b", ""]) {
+            expect(playerIcon({ ...red, icons: { bestCreature: [icon] } }, "bestCreature", 0), icon).toBeNull();
+        }
+    });
+
+    it("go in parentheses after a value in the table", () => {
+        expect(valueWithLabel("8,776", "Archangel")).toBe("8,776 (Archangel)");
+        expect(valueWithLabel("—", null)).toBe("—");
+    });
+
+    it("name pictures that are in the site, for every creature in the test saves", () => {
+        const assets = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
+        const icons = creatures.players.flatMap((p) => p.icons.bestCreature ?? []).filter((i) => i !== null);
+        expect(icons.length).toBeGreaterThan(0);
+        for (const icon of icons) {
+            const path = playerIcon({ ...creatures.players[0]!, icons: { bestCreature: [icon] } }, "bestCreature", 0)!;
+            expect(existsSync(join(assets, path)), path).toBe(true);
+        }
     });
 });

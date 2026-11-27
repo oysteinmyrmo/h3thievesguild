@@ -12,24 +12,24 @@ fits in the order below.
 ## Planned
 
 1. [Ask to reload a remembered game that lacks newer charts](reload-notice.md)
-2. [Best creature (Army)](best-creature.md)
-3. [Strongest hero army (Army)](strongest-hero-army.md)
-4. [Choose resources with checkboxes (Economy)](resource-checkboxes.md)
-5. [More Army and Kingdom charts](army-and-kingdom-charts.md)
-6. [Hero charts](hero-charts.md)
-7. [Other views of the numbers](views-of-the-numbers.md)
-8. [Army composition](army-composition.md)
-9. [Battles](battles.md)
-10. [Load saves by drag and drop](drag-and-drop.md)
-11. [Hosting](hosting.md)
-12. [Calculators](calculators.md)
-13. [Phone layout](phone-layout.md)
-14. [Charts that need more of the save read first](charts-needing-save-data.md)
-15. [Mage guilds and spell research](mage-guild.md)
-16. [Housekeeping](housekeeping.md)
+2. [Strongest hero army (Army)](strongest-hero-army.md)
+3. [Choose resources with checkboxes (Economy)](resource-checkboxes.md)
+4. [More Army and Kingdom charts](army-and-kingdom-charts.md)
+5. [Hero charts](hero-charts.md)
+6. [Other views of the numbers](views-of-the-numbers.md)
+7. [Army composition](army-composition.md)
+8. [Battles](battles.md)
+9. [Load saves by drag and drop](drag-and-drop.md)
+10. [Hosting](hosting.md)
+11. [Calculators](calculators.md)
+12. [Phone layout](phone-layout.md)
+13. [Charts that need more of the save read first](charts-needing-save-data.md)
+14. [Mage guilds and spell research](mage-guild.md)
+15. [Housekeeping](housekeeping.md)
 
 ## Done
 
+- Best creature (Army category, with the creature's picture and name in the tooltip).
 - Map explored (Map category, from the fog of war).
 - One large chart at a time, chosen by category, with Previous and Next.
 - Light and dark theme setting.

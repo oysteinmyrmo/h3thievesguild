@@ -555,3 +555,51 @@ fn creatures_day2() {
     assert_eq!(stats::hero_ai_value(hero), 531_083);
     assert_eq!(stats::hero_army_strength(hero), 557_004);
 }
+
+#[test]
+fn the_best_creature_of_each_player() {
+    // Each player's highest level creature, upgraded; Pink's best is Spint's Azure Dragons.
+    let expected = [
+        (Creature::ARCH_ANGEL, 8776, "Archangel"),
+        (Creature::GOLD_DRAGON, 8613, "Gold Dragon"),
+        (Creature::TITAN, 7500, "Titan"),
+        (Creature::ARCH_DEVIL, 7115, "Arch Devil"),
+        (Creature::GHOST_DRAGON, 4696, "Ghost Dragon"),
+        (Creature::BLACK_DRAGON, 8721, "Black Dragon"),
+        (Creature::ANCIENT_BEHEMOTH, 6168, "Ancient Behemoth"),
+        (Creature::AZURE_DRAGON, 78845, "Azure Dragon"),
+    ];
+    // The second day has the stacks in reverse order, which must not change the result.
+    for file in ["[hotseat] 111.GM8", "[hotseat] 112.GM8"] {
+        let save = open(&data_dir("creatures").join(file));
+        let players = h3save::player::players(&save);
+        for (player, (creature, value, name)) in players.iter().zip(expected) {
+            assert_eq!(player.best_creature(), Some(creature), "{file} {:?}", player.color());
+            assert_eq!(player.best_creature_ai_value(), value, "{file} {:?}", player.color());
+            assert_eq!(creature.display_name().as_deref(), Some(name));
+        }
+    }
+}
+
+#[test]
+fn creature_display_names() {
+    let name = |c: Creature| c.display_name();
+    assert_eq!(name(Creature::PIKEMAN).as_deref(), Some("Pikeman"));
+    assert_eq!(name(Creature::BLACK_DRAGON).as_deref(), Some("Black Dragon"));
+    assert_eq!(name(Creature::ARCH_ANGEL).as_deref(), Some("Archangel"));
+    assert_eq!(name(Creature::OLGOI_KHORKHOI).as_deref(), Some("Olgoi-Khorkhoi"));
+    assert_eq!(
+        name(Creature::HALFLING_GRENADIER).as_deref(),
+        Some("Halfling Grenadier")
+    );
+    assert_eq!(name(Creature::EMPTY), None);
+    assert_eq!(name(Creature(1000)), None);
+    // Every known creature has a name: words with a capital letter, separated by single spaces.
+    for &creature in Creature::ALL.iter().filter(|&&c| c != Creature::EMPTY) {
+        let name = creature.display_name().unwrap();
+        assert!(!name.contains("  ") && name.trim() == name, "{name}");
+        for word in name.split([' ', '-']) {
+            assert!(word.starts_with(|c: char| c.is_ascii_uppercase()), "{name}");
+        }
+    }
+}

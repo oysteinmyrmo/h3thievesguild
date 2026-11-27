@@ -37,6 +37,29 @@ export function unitOf(dataset: Dataset, statId: string): Unit {
     return dataset.playerStats.find((s) => s.id === statId)?.unit ?? "count";
 }
 
+/**
+ * Text to show with a player's value on a day, such as the name of the best creature, or `null`.
+ * Games remembered from before statistics had labels have none.
+ */
+export function playerLabel(player: PlayerSeries, statId: string, dayIndex: number): string | null {
+    return player.labels?.[statId]?.[dayIndex] ?? null;
+}
+
+/**
+ * The picture to show with a player's label on a day, as a path relative to the page, such as
+ * "assets/creatures/Archangel.png", or `null`. Games remembered from before pictures have none.
+ */
+export function playerIcon(player: PlayerSeries, statId: string, dayIndex: number): string | null {
+    const icon = player.icons?.[statId]?.[dayIndex];
+    // Names like "creatures/BlackDragon" only: the data set may come from the browser's storage.
+    return icon && /^[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*$/.test(icon) ? `assets/${icon}.png` : null;
+}
+
+/** A value with its label, if any: "8,776 (Archangel)". */
+export function valueWithLabel(value: string, label: string | null): string {
+    return label === null ? value : `${value} (${label})`;
+}
+
 /** The row of values of a statistic for a player, `null` on days without a value. */
 export function playerValues(dataset: Dataset, player: PlayerSeries, statId: string): (number | null)[] {
     return player.values[statId] ?? dataset.days.map(() => null);
@@ -82,19 +105,38 @@ export function tooltipHtml(
     const date = `Day ${day.day}: ${longDate(day)}`;
     const header = `<strong>${escapeHtml(date)}</strong><br><span class="tooltip-file">${source}</span>`;
     const shares = share ? dayShares(dataset, players, statId, dayIndex) : [];
+    // With labels, each row is a player, a picture and the name with the value, in a grid so
+    // the pictures line up. Without, each row is a player and the value.
+    const labelled = players.some((p) => playerLabel(p, statId, dayIndex) !== null);
     const rows = players.map((p, i) => {
         const raw = playerValues(dataset, p, statId)[dayIndex];
         const value = formatValue(raw, unitOf(dataset, statId));
+        const label = playerLabel(p, statId, dayIndex);
+        const icon = playerIcon(p, statId, dayIndex);
         const marker = `<span class="tooltip-marker" style="background:${escapeHtml(p.color)}"></span>`;
-        // A player out of the game has no share, rather than 0%.
-        const shown = !share
-            ? `<strong>${value}</strong>`
-            : raw === null || raw === undefined
-              ? `<strong>—</strong>`
-              : `<strong>${formatShare(shares[i])}</strong> (${value})`;
-        return `${marker}${escapeHtml(displayName(p, names))}: ${shown}`;
+        const player = `${marker}${escapeHtml(displayName(p, names))}:`;
+        let shown: string;
+        if (share && (raw === null || raw === undefined)) {
+            // A player out of the game has no share, rather than 0%.
+            shown = `<strong>—</strong>`;
+        } else if (label === null) {
+            shown = share ? `<strong>${formatShare(shares[i])}</strong> (${value})` : `<strong>${value}</strong>`;
+        } else {
+            // The name, then the value in small text. In the stacked view the share comes first
+            // and is the one in bold.
+            const name = share ? escapeHtml(label) : `<strong>${escapeHtml(label)}</strong>`;
+            const named = `${name} <span class="tooltip-small">${value}</span>`;
+            shown = share ? `<strong>${formatShare(shares[i])}</strong> ${named}` : named;
+        }
+        if (!labelled) {
+            return `${player} ${shown}`;
+        }
+        const picture = icon === null ? "" : `<img class="tooltip-icon" src="${escapeHtml(icon)}" alt="" width="32" height="32">`;
+        return `<span>${player}</span><span>${picture}</span><span>${shown}</span>`;
     });
-    return [header, ...rows].join("<br>");
+    return labelled
+        ? `${header}<div class="tooltip-grid">${rows.join("")}</div>`
+        : [header, ...rows].join("<br>");
 }
 
 function labelOfDay(dataset: Dataset, dayNumber: number, mode: XAxisMode): string | undefined {

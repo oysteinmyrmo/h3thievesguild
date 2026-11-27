@@ -18,10 +18,10 @@ that turns a game's saves into series for plotting.
 - Reads the in-game date (month, week and day).
 - Reads each player's resources, heroes on the map and towns.
 - Builds a data set from the saves of one game: per-day series of each player's resources, army
-  strength, heroes and towns, and each hero's level, experience and primary skills. Saves from
-  different games, or two saves from the same day, are reported as errors naming the files.
-  Days without a save stay on the x-axis with empty values, and come with a warning to show
-  the user before going on.
+  strength, best creature (with its name), heroes and towns, and each hero's level, experience
+  and primary skills. Saves from different games, or two saves from the same day, are reported
+  as errors naming the files. Days without a save stay on the x-axis with empty values, and come
+  with a warning to show the user before going on.
 - Factory and Bulwark: their creatures and AI values, town names, and Bulwark's Runes skill.
 - Artifact tables do not yet include the Factory and Bulwark additions. Unknown IDs are kept as
   raw values (for example `Artifact(200)`); unknown creatures count as 0 towards army strength.
@@ -35,6 +35,7 @@ that turns a game's saves into series for plotting.
 | `crates/h3dataset` | Builds the per-day data set for plotting from a game's saves. |
 | `crates/h3wasm` | WebAssembly bindings for the browser, with TypeScript types for the data set. |
 | `web` | The web frontend. |
+| `web/public/assets/creatures` | Creature pictures for the tooltips, from the Heroes 3 wiki; `SOURCE.md` says where from and who owns them. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools, and two HotA 1.7 saves in `hota_1_7`. Each folder's `info.txt` describes what was done in game. |
 | `docs/save-format.md` | The save file format, as far as the parser reads it. |
 | `docs/features` | Planned features: `README.md` lists them in order, with a short spec for each in its own file. |

@@ -12,14 +12,14 @@ const declarations = readFileSync(
     "utf8",
 );
 
-/** Every key of every object in `value`, except the keys of `values` maps: statistic IDs. */
+/** Every key of every object in `value`, except the keys of `values`, `labels` and `icons` maps: statistic IDs. */
 function keys(value: unknown, out = new Set<string>()): Set<string> {
     if (Array.isArray(value)) {
         value.forEach((item) => keys(item, out));
     } else if (typeof value === "object" && value !== null) {
         for (const [key, item] of Object.entries(value)) {
             out.add(key);
-            if (key !== "values") {
+            if (key !== "values" && key !== "labels" && key !== "icons") {
                 keys(item, out);
             }
         }
@@ -55,6 +55,8 @@ describe("the generated TypeScript types", () => {
         expect(declarations).toMatch(/eliminatedDay: number \| null;/);
         expect(declarations).toMatch(/missingDaysWarning: string \| null;/);
         expect(declarations).toMatch(/values: Record<string, \(number \| null\)\[\]>;/);
+        expect(declarations).toMatch(/labels: Record<string, \(string \| null\)\[\]>;/);
+        expect(declarations).toMatch(/icons: Record<string, \(string \| null\)\[\]>;/);
         expect(declarations).toContain("finish(): Dataset;");
     });
 });

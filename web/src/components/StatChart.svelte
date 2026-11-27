@@ -1,12 +1,12 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { playerShares, statChartOption, visiblePlayers, playerValues } from "../lib/chart";
+    import { playerLabel, playerShares, statChartOption, valueWithLabel, visiblePlayers, playerValues } from "../lib/chart";
     import { echarts } from "../lib/echarts";
     import { axisLabel, formatShare, formatValue } from "../lib/format";
     import { displayName, type PlayerNames } from "../lib/names";
     import type { ChartOptions } from "../lib/options";
     import { theme } from "../lib/theme.svelte";
-    import type { Dataset, StatInfo } from "../lib/wasm/pkg/h3wasm";
+    import type { Dataset, PlayerSeries, StatInfo } from "../lib/wasm/pkg/h3wasm";
 
     let {
         dataset,
@@ -45,12 +45,12 @@
     const players = $derived(visiblePlayers(dataset, hidden));
     const shares = $derived(options.chartType === "share" ? playerShares(dataset, players, stat.id) : undefined);
 
-    /** A table cell: the share in the stacked view, otherwise the value. */
-    function cell(playerId: string, values: (number | null)[], day: number): string {
+    /** A table cell: the share in the stacked view, otherwise the value with its label. */
+    function cell(player: PlayerSeries, values: (number | null)[], day: number): string {
         // A player out of the game has no share, rather than 0%.
         return shares && values[day] !== null
-            ? formatShare(shares.get(playerId)?.[day])
-            : formatValue(values[day], stat.unit);
+            ? formatShare(shares.get(player.id)?.[day])
+            : valueWithLabel(formatValue(values[day], stat.unit), playerLabel(player, stat.id, day));
     }
 </script>
 
@@ -69,7 +69,7 @@
         {#each dataset.days as day, i (day.day)}
             <tr>
                 <th scope="row">{axisLabel(day, options.xAxis)}</th>
-                {#each players as player (player.id)}<td>{cell(player.id, playerValues(dataset, player, stat.id), i)}</td>{/each}
+                {#each players as player (player.id)}<td>{cell(player, playerValues(dataset, player, stat.id), i)}</td>{/each}
             </tr>
         {/each}
     </tbody>

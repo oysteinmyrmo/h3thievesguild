@@ -1,5 +1,6 @@
 //! Players and their resources.
 
+use crate::creatures::Creature;
 use crate::hero::Hero;
 use crate::reader::{ReadResult, Reader, record_pos};
 use crate::savefile::SaveFile;
@@ -270,15 +271,28 @@ impl Player {
         heroes.chain(towns).fold(0, u64::saturating_add)
     }
 
-    /// Highest AI value among the best creatures of every hero and town.
-    pub fn best_creature_ai_value(&self) -> u32 {
+    /// The creature with the highest AI value in the armies of all heroes and town garrisons,
+    /// or `None` if there is none with a positive value. Of creatures with the same value, the
+    /// first is chosen: heroes before towns.
+    #[must_use]
+    pub fn best_creature(&self) -> Option<Creature> {
         let heroes = self.heroes.iter().map(Hero::best_creature);
         let towns = self.towns.iter().map(Town::best_creature);
-        heroes
-            .chain(towns)
-            .map(|c| c.ai_value().unwrap_or(0))
-            .max()
-            .unwrap_or(0)
+        let mut best = None;
+        let mut best_value = 0;
+        for creature in heroes.chain(towns) {
+            let value = creature.ai_value().unwrap_or(0);
+            if value > best_value {
+                best_value = value;
+                best = Some(creature);
+            }
+        }
+        best
+    }
+
+    /// Highest AI value among the creatures of every hero and town, 0 if there are none.
+    pub fn best_creature_ai_value(&self) -> u32 {
+        self.best_creature().and_then(Creature::ai_value).unwrap_or(0)
     }
 
     #[must_use]

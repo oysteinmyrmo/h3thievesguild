@@ -202,6 +202,30 @@ id_type! {
 pub const MAX_STACKS: usize = 7;
 
 impl Creature {
+    /// The name shown in game, such as "Black Dragon". `None` for the empty slot and for
+    /// creatures this crate does not know.
+    #[must_use]
+    pub fn display_name(self) -> Option<String> {
+        match self {
+            Creature::EMPTY => None,
+            Creature::ARCH_ANGEL => Some("Archangel".to_string()),
+            Creature::OLGOI_KHORKHOI => Some("Olgoi-Khorkhoi".to_string()),
+            // The constant's label with a space between words: "BlackDragon" is "Black Dragon".
+            _ => self.name().map(|label| {
+                let mut name = String::with_capacity(label.len().saturating_add(2));
+                let mut previous_lower = false;
+                for c in label.chars() {
+                    if c.is_ascii_uppercase() && previous_lower {
+                        name.push(' ');
+                    }
+                    previous_lower = c.is_ascii_lowercase();
+                    name.push(c);
+                }
+                name
+            }),
+        }
+    }
+
     /// AI value, from <https://heroes.thelazy.net/index.php/List_of_creatures_(HotA)>.
     /// The empty slot has value 0. Unknown creatures return `None`.
     #[must_use]

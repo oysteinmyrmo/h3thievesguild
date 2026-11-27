@@ -146,6 +146,7 @@ fn check_consistent(save: &SaveFile, what: &str) {
         let _ = (
             player.kingdom_army_strength(),
             player.best_creature_ai_value(),
+            player.best_creature().and_then(h3save::Creature::display_name),
             player.color().rgb(),
         );
     }

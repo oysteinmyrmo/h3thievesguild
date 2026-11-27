@@ -8,7 +8,7 @@ mod common;
 use common::{Decompressed, assert_date, data_dir, find_hero, find_town, open};
 use h3save::player::players;
 use h3save::savefile::{Error, Format, find_heroes};
-use h3save::{Color, Hero, MapSize, SaveFile, Skill, SkillLevel, SkillSlot, TownType};
+use h3save::{Color, Creature, Hero, MapSize, SaveFile, Skill, SkillLevel, SkillSlot, TownType};
 
 fn first_day() -> SaveFile {
     open(&data_dir("hota_1_7/[hotseat] 111.GM7"))
@@ -113,6 +113,20 @@ fn orange_holds_six_towns_on_the_last_day() {
             "Bertram"
         ]
     );
+}
+
+#[test]
+fn a_player_with_only_an_empty_town_has_no_best_creature() {
+    let save = last_day();
+    let all = players(&save);
+    let green = &all[Color::Green.index()];
+    assert!(green.alive());
+    assert!(green.towns().iter().all(|t| t.army_strength() == 0));
+    assert_eq!(green.best_creature(), None);
+    assert_eq!(green.best_creature_ai_value(), 0);
+    let orange = &all[Color::Orange.index()];
+    assert_eq!(orange.best_creature(), Some(Creature::BLACK_DRAGON));
+    assert_eq!(orange.best_creature_ai_value(), 8721);
 }
 
 #[test]

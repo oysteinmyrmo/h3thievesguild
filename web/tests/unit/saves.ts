@@ -40,4 +40,6 @@ export const MAP_VISIBILITY = ["[hotseat] 111.GM5", "[hotseat] 112.GM5", "[hotse
     save("map_visibility", f),
 );
 
+export const CREATURES = ["[hotseat] 111.GM8", "[hotseat] 112.GM8"].map((f) => save("creatures", f));
+
 export const RESOURCES = ["[hotseat] 111.GM8", "[hotseat] 112.GM8", "[hotseat] 113.GM5"].map((f) => save("resources", f));

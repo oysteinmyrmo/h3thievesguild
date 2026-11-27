@@ -11,7 +11,7 @@ use crate::error::{DatasetError, DayFiles, GameFiles, UnreadableFile};
 /// Most days a data set covers, from the first save to the last: ten years of game time. A
 /// longer series means a damaged date, and would take a lot of memory to chart.
 pub const MAX_DAYS: u32 = 10 * 12 * 28;
-use crate::stats::{HERO_STATS, PLAYER_STATS, StatInfo};
+use crate::stats::{HERO_STATS, Label, PLAYER_STATS, StatInfo};
 
 /// One game's statistics over time, ready for plotting.
 ///
@@ -122,6 +122,14 @@ pub struct PlayerSeries {
     /// One row per player statistic, keyed by [`StatInfo::id`]. Every statistic is 0 on the
     /// day the player is eliminated, so the lines drop to 0 there, and missing after it.
     pub values: BTreeMap<String, Vec<Option<f64>>>,
+    /// Text to show with the values, for the statistics that have it, keyed by
+    /// [`StatInfo::id`]: for "bestCreature", the creature's name. One entry per day, `null` on
+    /// days without a value or without anything to name, such as a player with no creatures.
+    pub labels: BTreeMap<String, Vec<Option<String>>>,
+    /// Pictures to show with the labels, keyed and laid out like `labels`, `null` where there
+    /// is none. A picture is named by its path in the site's `assets` folder, without the
+    /// extension: "creatures/BlackDragon" is `assets/creatures/BlackDragon.png`.
+    pub icons: BTreeMap<String, Vec<Option<String>>>,
 }
 
 /// A hero's statistics over the game.
@@ -149,8 +157,17 @@ struct Summary {
     date: Date,
     map: MapInfo,
     /// Each player's statistics, `None` when the player is not in the game.
-    players: [Option<Vec<f64>>; MAX_PLAYERS],
+    players: [Option<PlayerDay>; MAX_PLAYERS],
     heroes: Vec<OwnedHero>,
+}
+
+/// A player's statistics in one save.
+#[derive(Clone, Debug)]
+struct PlayerDay {
+    /// One value per entry of [`PLAYER_STATS`].
+    values: Vec<f64>,
+    /// One label per entry of [`PLAYER_STATS`], `None` for those without.
+    labels: Vec<Option<Label>>,
 }
 
 /// A hero owned by a player in one save.
@@ -175,9 +192,13 @@ impl Summary {
             underground: save.has_underground != 0,
         };
         let players = players(save).map(|player| {
-            player
-                .alive()
-                .then(|| PLAYER_STATS.iter().map(|stat| (stat.read)(&player, save)).collect())
+            player.alive().then(|| PlayerDay {
+                values: PLAYER_STATS.iter().map(|stat| (stat.read)(&player, save)).collect(),
+                labels: PLAYER_STATS
+                    .iter()
+                    .map(|stat| stat.label.and_then(|label| label(&player, save)))
+                    .collect(),
+            })
         });
         let heroes = (0u32..)
             .zip(&save.heroes)
@@ -489,7 +510,7 @@ fn color_id(color: Color) -> String {
 
 /// The series of one player, or `None` if the player is never in the game.
 fn player_series(saves: &[Summary], slots: &[Option<usize>], color: Color) -> Option<PlayerSeries> {
-    let rows: Vec<Option<&Vec<f64>>> = saves
+    let rows: Vec<Option<&PlayerDay>> = saves
         .iter()
         .map(|s| s.players.get(color.index()).and_then(Option::as_ref))
         .collect();
@@ -509,7 +530,7 @@ fn player_series(saves: &[Summary], slots: &[Option<usize>], color: Color) -> Op
                 .iter()
                 .enumerate()
                 .map(|(save, r)| match r {
-                    Some(values) => values.get(i).copied(),
+                    Some(day) => day.values.get(i).copied(),
                     None if Some(save) == eliminated => Some(0.0),
                     None => None,
                 })
@@ -517,6 +538,30 @@ fn player_series(saves: &[Summary], slots: &[Option<usize>], color: Color) -> Op
             (stat.info.id.to_string(), spread(&per_save, slots))
         })
         .collect();
+    // The label of each labelled statistic on each saved day, by statistic ID.
+    let labelled: Vec<(&str, Vec<Option<&Label>>)> = PLAYER_STATS
+        .iter()
+        .enumerate()
+        .filter(|(_, stat)| stat.label.is_some())
+        .map(|(i, stat)| {
+            let per_save = rows
+                .iter()
+                .map(|r| r.and_then(|day| day.labels.get(i)).and_then(Option::as_ref))
+                .collect();
+            (stat.info.id, per_save)
+        })
+        .collect();
+    let by_day = |part: fn(&Label) -> Option<String>| -> BTreeMap<String, Vec<Option<String>>> {
+        labelled
+            .iter()
+            .map(|(id, per_save)| {
+                let per_save: Vec<Option<String>> = per_save.iter().map(|l| l.and_then(part)).collect();
+                ((*id).to_string(), spread(&per_save, slots))
+            })
+            .collect()
+    };
+    let labels = by_day(|l| Some(l.text.clone()));
+    let icons = by_day(|l| l.icon.clone());
     let rgb = color.rgb();
     Some(PlayerSeries {
         id: color_id(color),
@@ -524,6 +569,8 @@ fn player_series(saves: &[Summary], slots: &[Option<usize>], color: Color) -> Op
         color: format!("#{:02x}{:02x}{:02x}", rgb.r, rgb.g, rgb.b),
         eliminated_day,
         values,
+        labels,
+        icons,
     })
 }
 

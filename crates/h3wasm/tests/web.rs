@@ -67,6 +67,14 @@ fn values_are_plain_objects_and_arrays_with_null_for_missing_days() {
     // null, not undefined, which ECharts shows as a gap; see the missing days test.)
     assert_eq!(gold.get(2).as_f64(), Some(0.0));
     assert_eq!(get(&blue, "eliminatedDay").as_f64(), Some(3.0));
+    // Labels are a plain object too, with text on days with a name and null otherwise.
+    let labels = get(&blue, "labels");
+    assert!(labels.is_instance_of::<Object>() && !labels.is_instance_of::<Map>());
+    let best: Array = get(&labels, "bestCreature").dyn_into().unwrap();
+    assert_eq!(best.get(0).as_string().as_deref(), Some("Air Elemental"));
+    assert!(best.get(2).is_null());
+    let icons: Array = get(&get(&blue, "icons"), "bestCreature").dyn_into().unwrap();
+    assert_eq!(icons.get(0).as_string().as_deref(), Some("creatures/AirElemental"));
     let red = players.iter().find(|p| get(p, "id") == "red").unwrap();
     assert!(get(&red, "eliminatedDay").is_null());
     assert_eq!(get(&red, "color"), "#f80000");
