@@ -1,5 +1,10 @@
 name: build-and-test
-on: [push]
+on:
+  push:
+    # A push that only changes documentation needs no build.
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
 env:
   CARGO_TERM_COLOR: always
 jobs:
