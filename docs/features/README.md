@@ -20,15 +20,15 @@ fits in the order below.
 7. [Army composition](army-composition.md)
 8. [Battles](battles.md)
 9. [Load saves by drag and drop](drag-and-drop.md)
-10. [Hosting](hosting.md)
-11. [Calculators](calculators.md)
-12. [Phone layout](phone-layout.md)
-13. [Charts that need more of the save read first](charts-needing-save-data.md)
-14. [Mage guilds and spell research](mage-guild.md)
-15. [Housekeeping](housekeeping.md)
+10. [Calculators](calculators.md)
+11. [Phone layout](phone-layout.md)
+12. [Charts that need more of the save read first](charts-needing-save-data.md)
+13. [Mage guilds and spell research](mage-guild.md)
+14. [Housekeeping](housekeeping.md)
 
 ## Done
 
+- Hosting on GitHub Pages, deployed from main ([hosting.md](hosting.md) has the one-time setup).
 - Best creature (Army category, with the creature's picture and name in the tooltip).
 - Map explored (Map category, from the fog of war).
 - One large chart at a time, chosen by category, with Previous and Next.

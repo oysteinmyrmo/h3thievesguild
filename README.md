@@ -38,6 +38,7 @@ that turns a game's saves into series for plotting.
 | `web/public/assets/creatures` | Creature pictures for the tooltips, from the Heroes 3 wiki; `SOURCE.md` says where from and who owns them. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools, and two HotA 1.7 saves in `hota_1_7`. Each folder's `info.txt` describes what was done in game. |
 | `docs/save-format.md` | The save file format, as far as the parser reads it. |
+| `.github/workflows/build.yml` | Builds and tests every push, and deploys main to GitHub Pages. |
 | `docs/features` | Planned features: `README.md` lists them in order, with a short spec for each in its own file. |
 
 ## Tests
@@ -92,6 +93,8 @@ Clippy lints for indexing, slicing, unwrapping and unchecked arithmetic, and
 
 ## Web frontend
 
+The site is at <https://oysteinmyrmo.github.io/h3thievesguild/>.
+
 The `web` folder is the site: Svelte, TypeScript and ECharts, with the parser running as
 WebAssembly in a Web Worker. Choose the save files of one game and it charts each player's
 statistics day by day. The last game is remembered in the browser until cleared.
@@ -118,6 +121,15 @@ Then, from `web`:
 | `npm run test:e2e` | Browser tests in Chromium, Firefox and WebKit. Run `npx playwright install --with-deps` once first. |
 
 The WebAssembly module is rebuilt before `dev`, `build`, `check` and the tests.
+
+### Deployment
+
+Every push to main is deployed to GitHub Pages by `.github/workflows/build.yml`: once the Rust,
+WebAssembly and web tests have all passed, the `deploy` job publishes the `web/dist` that the
+`web` job built. A push that only changes documentation is not deployed, and branches are tested
+but not deployed. The site needs no server-side routing, since pages are addressed by the URL hash
+and every file is found relative to the page. [docs/features/hosting.md](docs/features/hosting.md)
+has the one-time repository setup.
 
 ## Usage
 
