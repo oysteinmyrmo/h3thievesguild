@@ -37,7 +37,7 @@ that turns a game's saves into series for plotting.
 | `web` | The web frontend. |
 | `test_data` | HotA 1.8 test saves and maps, copied unchanged from homm3tools, and two HotA 1.7 saves in `hota_1_7`. Each folder's `info.txt` describes what was done in game. |
 | `docs/save-format.md` | The save file format, as far as the parser reads it. |
-| `docs/feature-requests.md` | Planned features, in order, each with a short spec. |
+| `docs/features` | Planned features: `README.md` lists them in order, with a short spec for each in its own file. |
 
 ## Tests
 
