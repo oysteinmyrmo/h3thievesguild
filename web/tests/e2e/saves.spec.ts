@@ -466,9 +466,23 @@ test("the Army category shows each player's best creature, named", async ({ page
         "6,168 (Ancient Behemoth)",
         "78,845 (Azure Dragon)",
     ]);
-    // The tooltip names the creature too.
-    await page.getByTestId("chart-bestCreature").hover();
-    const tooltip = page.getByTestId("chart-bestCreature").getByText("(Black Dragon)");
-    await expect(tooltip).toBeVisible();
-    await expect(page.getByTestId("chart-bestCreature")).toContainText("Red: 8,776 (Archangel)");
+    // The tooltip shows each creature's picture, then its name, then its AI value.
+    const chart = page.getByTestId("chart-bestCreature");
+    await chart.hover();
+    await expect(chart.getByText("Black Dragon", { exact: true })).toBeVisible();
+    // A grid of the player, the picture, and the name with the value, so the pictures line up.
+    const grid = chart.locator(".tooltip-grid > span");
+    await expect(grid).toHaveCount(24);
+    await expect(grid.nth(0)).toHaveText("Red:");
+    await expect(grid.nth(2)).toHaveText("Archangel 8,776");
+    await expect(grid.nth(17)).toHaveText("Black Dragon 8,721");
+    const columns = await chart.locator("img.tooltip-icon").evaluateAll((imgs) => imgs.map((i) => i.getBoundingClientRect().left));
+    expect(new Set(columns).size).toBe(1);
+    const pictures = chart.locator("img.tooltip-icon");
+    await expect(pictures).toHaveCount(8);
+    await expect(pictures.first()).toHaveAttribute("src", "assets/creatures/ArchAngel.png");
+    // Every picture is in the built site and has loaded.
+    await expect
+        .poll(() => pictures.evaluateAll((imgs) => imgs.map((i) => (i as HTMLImageElement).naturalWidth)))
+        .toEqual(Array(8).fill(32));
 });

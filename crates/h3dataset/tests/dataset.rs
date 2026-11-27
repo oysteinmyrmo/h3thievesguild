@@ -51,6 +51,33 @@ fn some(values: &[u32]) -> Vec<Option<f64>> {
     values.iter().map(|&v| Some(f64::from(v))).collect()
 }
 
+/// Labels for the statistics that have them, and only on days with a value: none on a missing
+/// day or the day the player is eliminated (`out`, a day index). A picture with every label.
+fn check_labels(p: &PlayerSeries, days: usize, out: Option<usize>) {
+    assert_eq!(
+        p.labels.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["bestCreature"]
+    );
+    for (stat, row) in &p.labels {
+        assert_eq!(row.len(), days);
+        for (i, label) in row.iter().enumerate() {
+            if label.is_some() {
+                assert!(p.values[stat][i].is_some_and(|v| v > 0.0), "{} {stat} {i}", p.id);
+                assert!(out != Some(i), "{} {stat} {i}", p.id);
+            }
+        }
+    }
+    assert_eq!(p.icons.keys().collect::<Vec<_>>(), p.labels.keys().collect::<Vec<_>>());
+    for (stat, row) in &p.icons {
+        assert_eq!(row.len(), days);
+        assert!(
+            row.iter().zip(&p.labels[stat]).all(|(i, l)| i.is_some() == l.is_some()),
+            "{} {stat}",
+            p.id
+        );
+    }
+}
+
 /// Checks that hold for every data set.
 fn check_shape(dataset: &Dataset) {
     let days = dataset.days.len();
@@ -129,21 +156,7 @@ fn check_shape(dataset: &Dataset) {
             );
         }
         assert!(p.color.len() == 7 && p.color.starts_with('#'));
-        // Labels for the statistics that have them, and only on days with a value: none on a
-        // missing day or the day the player is eliminated.
-        assert_eq!(
-            p.labels.keys().map(String::as_str).collect::<Vec<_>>(),
-            ["bestCreature"]
-        );
-        for (stat, row) in &p.labels {
-            assert_eq!(row.len(), days);
-            for (i, label) in row.iter().enumerate() {
-                if label.is_some() {
-                    assert!(p.values[stat][i].is_some_and(|v| v > 0.0), "{} {stat} {i}", p.id);
-                    assert!(out != Some(i), "{} {stat} {i}", p.id);
-                }
-            }
-        }
+        check_labels(p, days, out);
     }
     for hero in &dataset.heroes {
         assert_eq!(hero.owner.len(), days);
@@ -563,7 +576,7 @@ fn json_has_the_shape_the_frontend_expects() {
     );
     assert_eq!(
         keys(&json["players"][0]),
-        set(&["id", "name", "color", "eliminatedDay", "values", "labels"])
+        set(&["id", "name", "color", "eliminatedDay", "values", "labels", "icons"])
     );
     assert_eq!(keys(&json["heroes"][0]), set(&["id", "name", "owner", "values"]));
     assert_eq!(json["map"]["size"], "S");
@@ -585,6 +598,7 @@ fn json_has_the_shape_the_frontend_expects() {
     // the armies), null the day Blue is out of the game.
     assert_eq!(blue["values"]["bestCreature"], json!([356.0, 0.0]));
     assert_eq!(blue["labels"], json!({"bestCreature": ["Air Elemental", null]}));
+    assert_eq!(blue["icons"], json!({"bestCreature": ["creatures/AirElemental", null]}));
     let red = json["players"]
         .as_array()
         .unwrap()
@@ -887,6 +901,11 @@ fn best_creature_is_the_highest_ai_value_with_the_creature_named() {
             "{id}"
         );
     }
+    let icon = &player(&dataset, "purple").icons["bestCreature"];
+    assert_eq!(
+        icon,
+        &named(&[Some("creatures/BlackDragon"), Some("creatures/BlackDragon")])
+    );
     let stat = dataset.player_stats.iter().find(|s| s.id == "bestCreature").unwrap();
     assert_eq!(
         (stat.name, stat.group, stat.unit),
@@ -932,6 +951,7 @@ fn a_player_with_no_creatures_has_a_best_creature_of_0_and_no_name() {
     assert_eq!(green_labels.first(), Some(&Some("Wyvern".to_string())));
     assert_eq!(green_values.last(), Some(&Some(0.0)));
     assert_eq!(green_labels.last(), Some(&None));
+    assert_eq!(player(&dataset, "green").icons["bestCreature"].last(), Some(&None));
     // The days between the two saves have neither a value nor a name.
     assert!(green_values[1..green_values.len() - 1].iter().all(Option::is_none));
     assert!(green_labels[1..green_labels.len() - 1].iter().all(Option::is_none));
@@ -939,5 +959,30 @@ fn a_player_with_no_creatures_has_a_best_creature_of_0_and_no_name() {
     assert_eq!(
         labels(&dataset, "orange", "bestCreature").last(),
         Some(&Some("Black Dragon".to_string()))
+    );
+}
+
+#[test]
+fn every_creature_with_a_name_has_a_picture_in_the_site() {
+    // The pictures the data set names, as web/public/assets/<icon>.png.
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../web/public/assets");
+    let mut missing = Vec::new();
+    for &creature in h3save::Creature::ALL {
+        if creature.display_name().is_some() {
+            let file = assets.join(format!("creatures/{}.png", creature.name().unwrap()));
+            if !file.is_file() {
+                missing.push(file);
+            }
+        }
+    }
+    assert!(missing.is_empty(), "no picture: {missing:?}");
+    let pictures = std::fs::read_dir(assets.join("creatures"))
+        .unwrap()
+        .filter(|f| f.as_ref().unwrap().path().extension().is_some_and(|e| e == "png"))
+        .count();
+    assert_eq!(
+        pictures,
+        h3save::Creature::ALL.len() - 1,
+        "one picture per creature, none extra"
     );
 }

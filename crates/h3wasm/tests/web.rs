@@ -73,6 +73,8 @@ fn values_are_plain_objects_and_arrays_with_null_for_missing_days() {
     let best: Array = get(&labels, "bestCreature").dyn_into().unwrap();
     assert_eq!(best.get(0).as_string().as_deref(), Some("Air Elemental"));
     assert!(best.get(2).is_null());
+    let icons: Array = get(&get(&blue, "icons"), "bestCreature").dyn_into().unwrap();
+    assert_eq!(icons.get(0).as_string().as_deref(), Some("creatures/AirElemental"));
     let red = players.iter().find(|p| get(p, "id") == "red").unwrap();
     assert!(get(&red, "eliminatedDay").is_null());
     assert_eq!(get(&red, "color"), "#f80000");

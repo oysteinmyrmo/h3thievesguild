@@ -108,6 +108,27 @@ a:focus-visible {
     font-size: 12px;
 }
 
+/* Rows of a player, a picture, and a name with a value. */
+.tooltip-grid {
+    display: grid;
+    grid-template-columns: auto 32px auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.tooltip-icon {
+    display: block;
+    width: 32px;
+    height: 32px;
+}
+
+.tooltip-small {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
 .tooltip-marker {
     display: inline-block;
     width: 9px;

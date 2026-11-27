@@ -1,7 +1,7 @@
 //! The statistics in a data set: what each is called and how it is read from a save.
 
 use h3save::player::Player;
-use h3save::{Creature, Hero, SaveFile};
+use h3save::{Hero, SaveFile};
 use serde::Serialize;
 
 /// Describes one statistic, so the frontend can list and label it.
@@ -39,9 +39,28 @@ pub enum Unit {
 pub(crate) struct PlayerStat {
     pub info: StatInfo,
     pub read: fn(&Player, &SaveFile) -> f64,
-    /// Text to show with the value, such as the name of the creature it is the AI value of.
-    /// `None` for statistics that are only a number.
-    pub label: Option<fn(&Player, &SaveFile) -> Option<String>>,
+    /// What to show with the value, such as the creature it is the AI value of. `None` for
+    /// statistics that are only a number.
+    pub label: Option<fn(&Player, &SaveFile) -> Option<Label>>,
+}
+
+/// What to show with a value: a name, and a picture if there is one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Label {
+    pub text: String,
+    /// The picture's name, such as "creatures/BlackDragon"; see [`PlayerSeries::icons`].
+    ///
+    /// [`PlayerSeries::icons`]: crate::PlayerSeries::icons
+    pub icon: Option<String>,
+}
+
+/// The player's best creature, named and with its picture.
+fn best_creature(player: &Player, _: &SaveFile) -> Option<Label> {
+    let creature = player.best_creature()?;
+    Some(Label {
+        text: creature.display_name()?,
+        icon: creature.name().map(|name| format!("creatures/{name}")),
+    })
 }
 
 /// A hero statistic and how to read it.
@@ -148,7 +167,7 @@ pub(crate) const PLAYER_STATS: &[PlayerStat] = &[
     PlayerStat {
         info: info("bestCreature", "Best creature", "Army"),
         read: |p, _| f64::from(p.best_creature_ai_value()),
-        label: Some(|p, _| p.best_creature().and_then(Creature::display_name)),
+        label: Some(best_creature),
     },
     PlayerStat {
         info: info("heroes", "Heroes", "Kingdom"),

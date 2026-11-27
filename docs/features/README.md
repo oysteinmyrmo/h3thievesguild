@@ -29,7 +29,7 @@ fits in the order below.
 
 ## Done
 
-- Best creature (Army category, with the creature named in the tooltip).
+- Best creature (Army category, with the creature's picture and name in the tooltip).
 - Map explored (Map category, from the fog of war).
 - One large chart at a time, chosen by category, with Previous and Next.
 - Light and dark theme setting.
