@@ -1,0 +1,2 @@
+
+This is a longer 7 player game for HotA version 1.7.3. Used to test the frontend.

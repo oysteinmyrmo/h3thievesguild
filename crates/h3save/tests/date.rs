@@ -39,7 +39,7 @@ fn sample() -> PathBuf {
 #[test]
 fn every_test_save_has_the_date_its_autosave_name_gives() {
     let saves = all_saves();
-    assert_eq!(saves.len(), 75);
+    assert_eq!(saves.len(), 138);
     for path in saves {
         let save = SaveFile::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         assert_eq!(save.date, date_from_name(&path), "{}", path.display());
