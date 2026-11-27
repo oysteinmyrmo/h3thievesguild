@@ -1,15 +1,41 @@
 name: build-and-test
+# Every push builds and tests on Linux, where Actions minutes are cheapest. The other platforms
+# (Windows minutes count twice, macOS ten times on a private repository) only run when started by
+# hand: Actions > build-and-test > Run workflow.
 on:
   push:
     # A push that only changes documentation needs no build.
     paths-ignore:
       - "docs/**"
       - "**.md"
+  workflow_dispatch:
+# A newer push to the same branch stops the run still going for the older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 env:
   CARGO_TERM_COLOR: always
 jobs:
   build:
+    name: Linux x64
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - name: Build
+        run: cargo build --release --all-targets
+      - name: Test
+        run: cargo test --release
+      - name: Build WebAssembly
+        run: cargo build --release -p h3wasm --target wasm32-unknown-unknown
+
+  platforms:
     name: ${{ matrix.config.name }}
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
@@ -38,11 +64,6 @@ jobs:
         - {
           name: "MacOS x64",
           os: macos-15-intel,
-          toolchain: "stable"
-        }
-        - {
-          name: "Linux x64",
-          os: ubuntu-26.04,
           toolchain: "stable"
         }
         - {
